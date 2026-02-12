@@ -52,8 +52,10 @@
 - Generated statistical summaries
 
 ✅ **Task 2:** Data Preprocessing (COMPLETED)
-- Encoded labels successfully (M=0, R=1)
-- Separated features (X: 208x60) and target (Y: 208)
+- Created independent copy using `.copy()`
+- Encoded labels explicitly (R=0, M=1) using `.map()`
+- Separated features (X: 208x60) and target (y: 208)
+- Used proper naming conventions (lowercase y)
 - Verified numeric encoding and shapes
 - Data ready for modeling
 
@@ -100,7 +102,10 @@
 - **Inconsistent naming**: Stick to conventions (lowercase `y` for target in sklearn)
 
 ### Best Practices Discovered
-- (Will be populated through the projects)
+- **Use `.copy()` for dataframe operations**: Prevents unintended modifications to original data
+- **Explicit label encoding with `.map()`**: More readable and maintainable than implicit methods
+- **Follow sklearn conventions**: Use lowercase `y` for target, uppercase `X` for features
+- **Always verify transformations**: Print value_counts() after encoding to confirm mapping
 
 ---
 
