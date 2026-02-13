@@ -65,12 +65,13 @@
 - Training set: 166 samples, Test set: 42 samples
 - Class proportions maintained correctly in both sets
 
-### Current Task
-**Task 4:** Model Training
-- Initialize Logistic Regression model
-- Train the model on training data
-- Document training process
+✅ **Task 4:** Model Training (COMPLETED)
+- Initialized LogisticRegression model
+- Trained on 166 training samples with 60 features
+- Added verification: confirmed training success, features count, and intercept value
+- Model ready for evaluation
 
+### Current Task
 **Task 5:** Model Evaluation
 - Predict on both training and test sets
 - Calculate accuracy scores
