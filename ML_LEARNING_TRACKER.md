@@ -59,12 +59,13 @@
 - Verified numeric encoding and shapes
 - Data ready for modeling
 
-### Current Task
-**Task 3:** Train-Test Split
-- Split data into training and testing sets (80-20 or 70-30)
-- Verify split proportions
-- Check class distribution in both sets
+✅ **Task 3:** Train-Test Split (COMPLETED)
+- Split data with 80-20 ratio using train_test_split
+- Used stratify=y to maintain class balance
+- Training set: 166 samples, Test set: 42 samples
+- Class proportions maintained correctly in both sets
 
+### Current Task
 **Task 4:** Model Training
 - Initialize Logistic Regression model
 - Train the model on training data
