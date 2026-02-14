@@ -71,13 +71,15 @@
 - Added verification: confirmed training success, features count, and intercept value
 - Model ready for evaluation
 
-### Current Task
-**Task 5:** Model Evaluation
-- Predict on both training and test sets
-- Calculate accuracy scores
-- Generate confusion matrix
-- Create classification report (precision, recall, F1-score)
+✅ **Task 5:** Model Evaluation (COMPLETED)
+- Made predictions on training and test sets
+- Calculated accuracy scores with formatted output
+- Training Accuracy: 86.14%, Test Accuracy: 71.43%
+- Generated confusion matrix showing error distribution
+- Created classification report with precision, recall, F1-score
+- Corrected variable naming (training_accuracy)
 
+### Current Task
 **Task 6:** Model Analysis & Insights
 - Analyze model performance
 - Identify any issues (overfitting/underfitting)
@@ -102,6 +104,7 @@
 - **Reference vs Copy**: Using `df2 = df1` creates a reference, not a copy; use `.copy()` to create independent dataframes
 - **Implicit encoding**: `.astype('category').cat.codes` encodes alphabetically - always verify which label maps to which number
 - **Inconsistent naming**: Stick to conventions (lowercase `y` for target in sklearn)
+- **Typos in variable names**: Always double-check spelling - typos like `traning` vs `training` affect code quality and readability
 
 ### Best Practices Discovered
 - **Use `.copy()` for dataframe operations**: Prevents unintended modifications to original data
