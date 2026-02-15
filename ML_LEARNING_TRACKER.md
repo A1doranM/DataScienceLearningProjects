@@ -52,20 +52,15 @@
 - Discovered critical data quality issue: 5-374 zeros in medical features (missing data)
 - No null values but zeros represent missing measurements
 
-### Current Task
-**Task 2:** Data Quality & Preprocessing
-- Import necessary libraries (pandas, numpy, sklearn)
-- Load the diabetes.csv dataset
-- Display dataset shape and basic info
-- Show first few rows to understand structure
-- Check data types and column names
-- Examine class distribution (Outcome: 0 vs 1)
-- Check for missing values
-- Generate statistical summary
-- **NEW:** Identify potential data quality issues (zero values in medical features)
+✅ **Task 2:** Data Quality & Preprocessing (COMPLETED)
+- Replaced 0 with NaN for medically impossible features (Glucose, BP, SkinThickness, Insulin, BMI)
+- Imputed 652 missing values total using median imputation
+- Separated features (X: 768×8) and target (y: 768)
+- Applied StandardScaler for SVM compatibility
+- All features now standardized (mean=0, std=1)
 
-### Upcoming Tasks
-**Task 2:** Data Quality & Preprocessing
+### Current Task
+**Task 3:** Train-Test Split
 - Handle zero values in features where 0 is medically impossible
 - Standardize/normalize features for SVM
 - Separate features (X) and target (y)
