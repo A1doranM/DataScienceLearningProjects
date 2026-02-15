@@ -24,71 +24,65 @@
 ## Current Project
 **Status:** 🏗️ In Progress
 
-**Project Name:** Sonar Rock vs Mine Classification
+**Project Name:** Diabetes Prediction using SVM
 
-**Project Description:** Build a binary classification model using Logistic Regression to predict whether sonar readings indicate a Rock (R) or Mine (M). The dataset contains 60 numerical features representing sonar signal frequencies/amplitudes.
+**Project Description:** Build a binary classification model using Support Vector Machine (SVM) to predict whether a patient has diabetes based on diagnostic measurements. The Pima Indians Diabetes dataset contains medical predictor variables and one target variable (Outcome).
 
 **Project Goals:**
-- Build a production-ready binary classification pipeline
-- Learn proper data preprocessing and exploration techniques
-- Implement Logistic Regression for classification
-- Evaluate model performance with appropriate metrics
-- Understand feature importance and model behavior
+- Learn Support Vector Machine (SVM) algorithm
+- Handle medical/health data with proper preprocessing
+- Deal with potential data quality issues (zero values)
+- Compare SVM performance with previous Logistic Regression knowledge
+- Build production-ready medical prediction model
 
-**Dataset:** `sonar_data.csv` (60 features + 1 label column)
-**Algorithm:** Logistic Regression
-**Files:** `1. Sonar Data Rock vs Mine\Rock vs Mine.ipynb`
+**Dataset:** `diabetes.csv` (8 features: Pregnancies, Glucose, BloodPressure, SkinThickness, Insulin, BMI, DiabetesPedigreeFunction, Age + 1 Outcome)
+**Algorithm:** Support Vector Machine (SVM)
+**Files:** `2. Diabetes Prediction\Diabetes Prediction using Machine Learning.ipynb`
 
 ---
 
 ## Task Breakdown
 
 ### Completed Tasks
-✅ **Task 1:** Data Loading and Initial Exploration (COMPLETED)
-- Loaded dataset correctly with proper parameters
-- Explored shape, data types, and structure
-- Identified 208 samples, 60 features, fairly balanced classes
-- Confirmed no missing values
-- Generated statistical summaries
-
-✅ **Task 2:** Data Preprocessing (COMPLETED)
-- Created independent copy using `.copy()`
-- Encoded labels explicitly (R=0, M=1) using `.map()`
-- Separated features (X: 208x60) and target (y: 208)
-- Used proper naming conventions (lowercase y)
-- Verified numeric encoding and shapes
-- Data ready for modeling
-
-✅ **Task 3:** Train-Test Split (COMPLETED)
-- Split data with 80-20 ratio using train_test_split
-- Used stratify=y to maintain class balance
-- Training set: 166 samples, Test set: 42 samples
-- Class proportions maintained correctly in both sets
-
-✅ **Task 4:** Model Training (COMPLETED)
-- Initialized LogisticRegression model
-- Trained on 166 training samples with 60 features
-- Added verification: confirmed training success, features count, and intercept value
-- Model ready for evaluation
-
-✅ **Task 5:** Model Evaluation (COMPLETED)
-- Made predictions on training and test sets
-- Calculated accuracy scores with formatted output
-- Training Accuracy: 86.14%, Test Accuracy: 71.43%
-- Generated confusion matrix showing error distribution
-- Created classification report with precision, recall, F1-score
-- Corrected variable naming (training_accuracy)
-
-✅ **Task 6:** Model Analysis & Insights (COMPLETED)
-- Analyzed generalization (15% drop is acceptable)
-- Identified false negatives (mines as rocks) as more dangerous
-- Understood model performs better on mines due to distinctive signatures
-- Proposed improvements: hyperparameter tuning, more data, other algorithms
+None yet - starting new project
 
 ### Current Task
-**Project Complete!** 🎉
+**Task 1:** Data Loading and Initial Exploration
+- Import necessary libraries (pandas, numpy, sklearn)
+- Load the diabetes.csv dataset
+- Display dataset shape and basic info
+- Show first few rows to understand structure
+- Check data types and column names
+- Examine class distribution (Outcome: 0 vs 1)
+- Check for missing values
+- Generate statistical summary
+- **NEW:** Identify potential data quality issues (zero values in medical features)
 
-All core ML tasks finished. Optional Task 7 available for code cleanup.
+### Upcoming Tasks
+**Task 2:** Data Quality & Preprocessing
+- Handle zero values in features where 0 is medically impossible
+- Standardize/normalize features for SVM
+- Separate features (X) and target (y)
+
+**Task 3:** Train-Test Split
+- Split data with stratification
+- Verify class balance in both sets
+
+**Task 4:** Model Training (SVM)
+- Initialize SVM classifier
+- Train on training data
+- Understand SVM hyperparameters
+
+**Task 5:** Model Evaluation
+- Evaluate accuracy on both sets
+- Generate confusion matrix
+- Create classification report
+- Compare with Logistic Regression results from Project 1
+
+**Task 6:** Model Analysis & Medical Insights
+- Analyze false positives vs false negatives
+- Discuss medical implications
+- Propose improvements
 
 ---
 
