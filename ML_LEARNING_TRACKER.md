@@ -22,7 +22,7 @@
 ---
 
 ## Current Project
-**Status:** 🏗️ In Progress
+**Status:** ✅ COMPLETED
 
 **Project Name:** Diabetes Prediction using SVM
 
@@ -59,31 +59,27 @@
 - Applied StandardScaler for SVM compatibility
 - All features now standardized (mean=0, std=1)
 
-### Current Task
-**Task 3:** Train-Test Split
-- Handle zero values in features where 0 is medically impossible
-- Standardize/normalize features for SVM
-- Separate features (X) and target (y)
+✅ **Task 3:** Train-Test Split (COMPLETED)
+- Split data 80-20 with stratification
+- Training: 614 samples, Test: 154 samples
+- Class balance maintained: ~65% class 0, ~35% class 1 in both sets
+- Verified shapes and distributions
 
-**Task 3:** Train-Test Split
-- Split data with stratification
-- Verify class balance in both sets
+✅ **Task 4:** Model Training (SVM) (COMPLETED)
+- Initialized SVC with linear kernel
+- Trained on 614 samples successfully
+- Model uses 315 support vectors (51% of training data)
+- Class 0: 157 SVs, Class 1: 158 SVs
 
-**Task 4:** Model Training (SVM)
-- Initialize SVM classifier
-- Train on training data
-- Understand SVM hyperparameters
+✅ **Task 5:** Model Evaluation (COMPLETED)
+- Predictions on train and test sets
+- Training: 78.01%, Test: 76.62%
+- Generated confusion matrix and classification report
+- Better generalization than Logistic Regression (1.39% vs 14.71% drop)
+- BONUS: Built predictive system for new patient data
 
-**Task 5:** Model Evaluation
-- Evaluate accuracy on both sets
-- Generate confusion matrix
-- Create classification report
-- Compare with Logistic Regression results from Project 1
-
-**Task 6:** Model Analysis & Medical Insights
-- Analyze false positives vs false negatives
-- Discuss medical implications
-- Propose improvements
+### Project Complete! 🎉
+All core tasks finished. Ready for next project.
 
 ---
 
@@ -119,6 +115,15 @@
 - Key Achievement: Built complete ML pipeline from data loading to evaluation
 - Skills Learned: Data preprocessing, train-test split, model evaluation, confusion matrix analysis
 - Date Completed: 2026-02-14
+
+✅ **Project 2: Diabetes Prediction using SVM** (COMPLETED)
+- Algorithm: Support Vector Machine (Linear Kernel)
+- Dataset: 768 samples, 8 features, binary classification (imbalanced)
+- Final Performance: 76.62% test accuracy, 78.01% training accuracy
+- Key Achievement: Handled missing data, applied feature scaling, built predictive system
+- Skills Learned: Data quality checks, median imputation, StandardScaler, SVM, medical data analysis
+- Notable: Excellent generalization (only 1.39% drop), 315 support vectors
+- Date Completed: 2026-02-16
 
 ---
 
