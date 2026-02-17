@@ -22,64 +22,68 @@
 ---
 
 ## Current Project
-**Status:** ✅ COMPLETED
+**Status:** 🏗️ In Progress
 
-**Project Name:** Diabetes Prediction using SVM
+**Project Name:** California Housing Price Prediction with XGBoost
 
-**Project Description:** Build a binary classification model using Support Vector Machine (SVM) to predict whether a patient has diabetes based on diagnostic measurements. The Pima Indians Diabetes dataset contains medical predictor variables and one target variable (Outcome).
+**Project Description:** Build a REGRESSION model using XGBoost to predict median house values in California districts. This is your first regression project - predicting continuous values instead of categories!
 
 **Project Goals:**
-- Learn Support Vector Machine (SVM) algorithm
-- Handle medical/health data with proper preprocessing
-- Deal with potential data quality issues (zero values)
-- Compare SVM performance with previous Logistic Regression knowledge
-- Build production-ready medical prediction model
+- Learn XGBoost (Extreme Gradient Boosting) algorithm
+- Transition from classification to regression problems
+- Learn regression evaluation metrics (R², MAE, RMSE)
+- Handle larger datasets (20,640 samples)
+- Understand feature importance in tree-based models
 
-**Dataset:** `diabetes.csv` (8 features: Pregnancies, Glucose, BloodPressure, SkinThickness, Insulin, BMI, DiabetesPedigreeFunction, Age + 1 Outcome)
-**Algorithm:** Support Vector Machine (SVM)
-**Files:** `2. Diabetes Prediction\Diabetes Prediction using Machine Learning.ipynb`
+**Dataset:** California Housing (built-in sklearn dataset)
+- **20,640 samples** (much larger than previous projects!)
+- **8 features:** MedInc, HouseAge, AveRooms, AveBedrms, Population, AveOccup, Latitude, Longitude
+- **Target:** Median house value (continuous, in $100,000s)
+
+**Algorithm:** XGBoost Regressor
+**Files:** `3. House Price Prediction\House Price Prediction.ipynb`
 
 ---
 
 ## Task Breakdown
 
 ### Completed Tasks
-✅ **Task 1:** Data Loading and Initial Exploration (COMPLETED)
-- Imported all required libraries correctly
-- Loaded 768-patient diabetes dataset with proper headers
-- Identified 8 features + 1 target (Outcome)
-- Found class imbalance: 65% non-diabetic, 35% diabetic
-- Discovered critical data quality issue: 5-374 zeros in medical features (missing data)
-- No null values but zeros represent missing measurements
+None yet - starting new project
 
-✅ **Task 2:** Data Quality & Preprocessing (COMPLETED)
-- Replaced 0 with NaN for medically impossible features (Glucose, BP, SkinThickness, Insulin, BMI)
-- Imputed 652 missing values total using median imputation
-- Separated features (X: 768×8) and target (y: 768)
-- Applied StandardScaler for SVM compatibility
-- All features now standardized (mean=0, std=1)
+### Current Task
+**Task 1:** Data Loading and Initial Exploration
+- Import libraries (numpy, pandas, xgboost, sklearn)
+- Load California Housing dataset using `fetch_california_housing()`
+- Convert to DataFrame for easier handling
+- Display dataset info, shape, and first few rows
+- Check for missing values
+- Generate statistical summary
+- **NEW:** Understand target distribution (continuous values, not categories)
 
-✅ **Task 3:** Train-Test Split (COMPLETED)
-- Split data 80-20 with stratification
-- Training: 614 samples, Test: 154 samples
-- Class balance maintained: ~65% class 0, ~35% class 1 in both sets
-- Verified shapes and distributions
+### Upcoming Tasks
+**Task 2:** Data Visualization & Understanding
+- Visualize target distribution (histogram)
+- Check feature correlations
+- Understand what each feature represents
 
-✅ **Task 4:** Model Training (SVM) (COMPLETED)
-- Initialized SVC with linear kernel
-- Trained on 614 samples successfully
-- Model uses 315 support vectors (51% of training data)
-- Class 0: 157 SVs, Class 1: 158 SVs
+**Task 3:** Train-Test Split
+- Split data (NO stratification - this is regression!)
+- Verify shapes
 
-✅ **Task 5:** Model Evaluation (COMPLETED)
-- Predictions on train and test sets
-- Training: 78.01%, Test: 76.62%
-- Generated confusion matrix and classification report
-- Better generalization than Logistic Regression (1.39% vs 14.71% drop)
-- BONUS: Built predictive system for new patient data
+**Task 4:** Model Training (XGBoost)
+- Initialize XGBoost Regressor
+- Train the model
+- Understand XGBoost hyperparameters
 
-### Project Complete! 🎉
-All core tasks finished. Ready for next project.
+**Task 5:** Model Evaluation (Regression Metrics)
+- Calculate R² score, MAE, RMSE
+- Visualize predictions vs actual values
+- Analyze feature importance
+
+**Task 6:** Model Analysis & Improvements
+- Discuss results
+- Compare with previous projects
+- Suggest improvements
 
 ---
 
