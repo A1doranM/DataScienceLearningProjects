@@ -64,26 +64,33 @@
 - **Error fixed:** Copy-paste error with plot labels - corrected xlabel and title for each scatter plot
 - Understood that target is continuous (regression), not categorical (classification)
 
+✅ **Task 3:** Train-Test Split (COMPLETED)
+- Separated features (X) and target (y) using `.drop()` and column selection
+- Split into training (16,512 samples, 80%) and testing (4,128 samples, 20%) sets
+- Used `test_size=0.2` and `random_state=42` for reproducibility
+- Correctly avoided stratification (not applicable for regression)
+- **Error fixed:** Inconsistent naming - changed Y_train/Y_test to y_train/y_test (same mistake as Project 1!)
+- Verified all shapes after split
+
+✅ **Task 4:** Model Training (XGBoost) (COMPLETED)
+- Initialized XGBRegressor() with default parameters
+- Trained model using `.fit(X_train, y_train)`
+- Generated predictions on both training and test sets
+- **Error fixed:** Typo in variable name - changed `trest_data_prediction` to `test_data_prediction` (similar to `traning` typo pattern!)
+- First time using tree-based ensemble algorithm (XGBoost)
+
+✅ **Task 5:** Model Evaluation (Regression Metrics) (COMPLETED)
+- Calculated R² score for training (0.9446) and test (0.8301)
+- Calculated MAE for training (0.193) and test (0.310)
+- Calculated RMSE for training (0.272) and test (0.472)
+- **Good practice:** Used `root_mean_squared_error()` directly instead of manual sqrt calculation
+- **Key finding:** Model shows overfitting (11.4% R² drop, 61% MAE increase from train to test)
+- First time working with regression evaluation metrics (previously used accuracy for classification)
+
 ### Current Task
-**Task 3:** Train-Test Split
-- Split data (NO stratification - this is regression!)
-- Verify shapes
+**Task 6:** Project Wrap-up & Reflection
 
 ### Upcoming Tasks
-- Split data (NO stratification - this is regression!)
-- Verify shapes
-
-**Task 4:** Model Training (XGBoost)
-- Initialize XGBoost Regressor
-- Train the model
-- Understand XGBoost hyperparameters
-
-**Task 5:** Model Evaluation (Regression Metrics)
-- Calculate R² score, MAE, RMSE
-- Visualize predictions vs actual values
-- Analyze feature importance
-
-**Task 6:** Model Analysis & Improvements
 - Discuss results
 - Compare with previous projects
 - Suggest improvements
@@ -97,12 +104,16 @@
 - **Class balance matters**: A 53%-47% split is fairly balanced; severe imbalance (90%-10%) would require special handling
 - **Data quality check is crucial**: Checking for missing values early prevents errors during modeling
 - **Feature scaling observation**: Sonar features are already in 0-1 range, suggesting pre-normalized data
+- **Regression vs Classification metrics**: Classification uses accuracy/precision/recall; Regression uses R²/MAE/RMSE
+- **R² interpretation**: 0.83 means model explains 83% of variance; closer to 1.0 is better
+- **Overfitting detection**: Compare training vs test metrics; large gaps indicate overfitting
+- **XGBoost tends to overfit**: Tree-based models can memorize training data; regularization helps
 
 ### Common Mistakes to Avoid
 - **Reference vs Copy**: Using `df2 = df1` creates a reference, not a copy; use `.copy()` to create independent dataframes
 - **Implicit encoding**: `.astype('category').cat.codes` encodes alphabetically - always verify which label maps to which number
-- **Inconsistent naming**: Stick to conventions (lowercase `y` for target in sklearn)
-- **Typos in variable names**: Always double-check spelling - typos like `traning` vs `training` affect code quality and readability
+- **Inconsistent naming**: Stick to conventions (lowercase `y` for target in sklearn) - **this mistake happened in both Project 1 and Project 3!**
+- **Typos in variable names**: Always double-check spelling - **RECURRING ISSUE**: `traning` (Projects 1, 2), `trest` (Project 3). These typos keep appearing!
 - **Copy-paste errors**: When copying code blocks, always update variable-specific parts (labels, titles, variable names) to match the new context
 
 ### Best Practices Discovered
@@ -143,4 +154,4 @@
 ---
 
 *Last Updated:* 2026-02-18
-*Current Status:* Project 3 - Task 3 (Train-Test Split)
+*Current Status:* Project 3 - Task 6 (Project Wrap-up)
