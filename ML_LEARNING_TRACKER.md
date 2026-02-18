@@ -56,23 +56,20 @@
 - Target range: $15k-$500k (note: values capped at $500k)
 - Understood feature meanings through DESCR
 
+✅ **Task 2:** Data Visualization & Understanding (COMPLETED)
+- Created histogram of house price distribution
+- Generated correlation heatmap for all features
+- Identified MedInc as strongest predictor (0.688 correlation)
+- Created scatter plots for top 3 correlated features (MedInc, AveRooms, HouseAge)
+- **Error fixed:** Copy-paste error with plot labels - corrected xlabel and title for each scatter plot
+- Understood that target is continuous (regression), not categorical (classification)
+
 ### Current Task
-**Task 2:** Data Visualization & Understanding
-- Import libraries (numpy, pandas, xgboost, sklearn)
-- Load California Housing dataset using `fetch_california_housing()`
-- Convert to DataFrame for easier handling
-- Display dataset info, shape, and first few rows
-- Check for missing values
-- Generate statistical summary
-- **NEW:** Understand target distribution (continuous values, not categories)
+**Task 3:** Train-Test Split
+- Split data (NO stratification - this is regression!)
+- Verify shapes
 
 ### Upcoming Tasks
-**Task 2:** Data Visualization & Understanding
-- Visualize target distribution (histogram)
-- Check feature correlations
-- Understand what each feature represents
-
-**Task 3:** Train-Test Split
 - Split data (NO stratification - this is regression!)
 - Verify shapes
 
@@ -106,6 +103,7 @@
 - **Implicit encoding**: `.astype('category').cat.codes` encodes alphabetically - always verify which label maps to which number
 - **Inconsistent naming**: Stick to conventions (lowercase `y` for target in sklearn)
 - **Typos in variable names**: Always double-check spelling - typos like `traning` vs `training` affect code quality and readability
+- **Copy-paste errors**: When copying code blocks, always update variable-specific parts (labels, titles, variable names) to match the new context
 
 ### Best Practices Discovered
 - **Use `.copy()` for dataframe operations**: Prevents unintended modifications to original data
@@ -144,5 +142,5 @@
 
 ---
 
-*Last Updated:* 2026-02-12
-*Current Status:* Ready to begin - awaiting project description
+*Last Updated:* 2026-02-18
+*Current Status:* Project 3 - Task 3 (Train-Test Split)
