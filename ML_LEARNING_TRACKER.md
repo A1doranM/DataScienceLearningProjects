@@ -48,23 +48,26 @@
 ## Task Breakdown
 
 ### Completed Tasks
-None yet - Project just started!
+✅ **Task 1:** Data Loading and Initial Exploration (COMPLETED)
+- Imported all required libraries (pandas, numpy, matplotlib, seaborn, RandomForestRegressor, metrics)
+- Loaded gold_data.csv successfully (2,290 samples, 6 columns)
+- Displayed dataset information: shape, head, info, describe
+- Confirmed no missing values in any column
+- Identified features: Date (string), SPX, GLD (target), USO, SLV, EUR/USD (all float64)
+- Observed gold price range: $70-$184
+
+✅ **Task 2:** Data Visualization & Correlation Analysis (COMPLETED)
+- Created histogram of gold price distribution
+- Generated correlation heatmap (dropped Date column before correlation calculation)
+- Identified Silver (SLV) as strongest predictor with 0.867 correlation
+- Created scatter plots for SLV and USO vs gold prices
+- **Error fixed:** Scatter plot axes were backwards (target on x-axis) - corrected to show feature → target relationship
+- Economic insight: Gold and silver move together strongly (precious metals correlation)
 
 ### Current Task
-**Task 1:** Data Loading and Initial Exploration
-- Import libraries (pandas, numpy, matplotlib, seaborn, sklearn, RandomForestRegressor)
-- Load CSV data
-- Display basic info (shape, columns, dtypes, head)
-- Check for missing values
-- Understand what each feature represents
+**Task 3:** Feature Engineering & Data Preparation
 
 ### Upcoming Tasks
-**Task 2:** Data Visualization & Correlation Analysis
-- Visualize target distribution
-- Analyze correlations between features and gold price
-- Create relevant plots
-
-**Task 3:** Feature Engineering & Data Preparation
 - Handle Date column (drop or extract features)
 - Separate features and target
 - Train-test split
@@ -102,6 +105,7 @@ None yet - Project just started!
 - **Inconsistent naming**: Stick to conventions (lowercase `y` for target in sklearn) - **this mistake happened in both Project 1 and Project 3!**
 - **Typos in variable names**: Always double-check spelling - **RECURRING ISSUE**: `traning` (Projects 1, 2), `trest` (Project 3). These typos keep appearing!
 - **Copy-paste errors**: When copying code blocks, always update variable-specific parts (labels, titles, variable names) to match the new context
+- **Scatter plot axes confusion**: Always put feature on x-axis and target on y-axis to show cause → effect relationship correctly
 
 ### Best Practices Discovered
 - **Use `.copy()` for dataframe operations**: Prevents unintended modifications to original data
@@ -150,4 +154,4 @@ None yet - Project just started!
 ---
 
 *Last Updated:* 2026-02-18
-*Current Status:* Project 4 - Task 1 (Data Loading and Initial Exploration)
+*Current Status:* Project 4 - Task 3 (Feature Engineering & Data Preparation)
