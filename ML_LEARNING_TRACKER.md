@@ -24,76 +24,63 @@
 ## Current Project
 **Status:** 🏗️ In Progress
 
-**Project Name:** California Housing Price Prediction with XGBoost
+**Project Name:** Gold Price Prediction with RandomForestRegressor
 
-**Project Description:** Build a REGRESSION model using XGBoost to predict median house values in California districts. This is your first regression project - predicting continuous values instead of categories!
+**Project Description:** Build a REGRESSION model using RandomForest to predict gold prices based on financial market indicators. This is your second regression project with a different tree-based ensemble algorithm!
 
 **Project Goals:**
-- Learn XGBoost (Extreme Gradient Boosting) algorithm
-- Transition from classification to regression problems
-- Learn regression evaluation metrics (R², MAE, RMSE)
-- Handle larger datasets (20,640 samples)
-- Understand feature importance in tree-based models
+- Learn RandomForestRegressor algorithm
+- Work with financial/time-series data
+- Understand correlation between gold and other financial assets
+- Compare RandomForest vs XGBoost performance
+- Handle date columns in datasets
 
-**Dataset:** California Housing (built-in sklearn dataset)
-- **20,640 samples** (much larger than previous projects!)
-- **8 features:** MedInc, HouseAge, AveRooms, AveBedrms, Population, AveOccup, Latitude, Longitude
-- **Target:** Median house value (continuous, in $100,000s)
+**Dataset:** Gold Price Data (CSV file)
+- **2,290 samples** (daily financial data from 2008-2018)
+- **5 features:** Date, SPX (S&P 500), USO (Oil), SLV (Silver), EUR/USD (Currency)
+- **Target:** GLD (Gold price)
 
-**Algorithm:** XGBoost Regressor
-**Files:** `3. House Price Prediction\House Price Prediction.ipynb`
+**Algorithm:** RandomForest Regressor
+**Files:** `4. Gold Price Prediction\0. Gold Price Prediction.ipynb`, `4. Gold Price Prediction\gld_price_data.csv`
 
 ---
 
 ## Task Breakdown
 
 ### Completed Tasks
-✅ **Task 1:** Data Loading and Initial Exploration (COMPLETED)
-- Imported all required libraries including XGBoost
-- Loaded California Housing dataset (20,640 samples, 8 features)
-- Converted to DataFrame with proper structure
-- No missing values, all float64 data types
-- Target range: $15k-$500k (note: values capped at $500k)
-- Understood feature meanings through DESCR
-
-✅ **Task 2:** Data Visualization & Understanding (COMPLETED)
-- Created histogram of house price distribution
-- Generated correlation heatmap for all features
-- Identified MedInc as strongest predictor (0.688 correlation)
-- Created scatter plots for top 3 correlated features (MedInc, AveRooms, HouseAge)
-- **Error fixed:** Copy-paste error with plot labels - corrected xlabel and title for each scatter plot
-- Understood that target is continuous (regression), not categorical (classification)
-
-✅ **Task 3:** Train-Test Split (COMPLETED)
-- Separated features (X) and target (y) using `.drop()` and column selection
-- Split into training (16,512 samples, 80%) and testing (4,128 samples, 20%) sets
-- Used `test_size=0.2` and `random_state=42` for reproducibility
-- Correctly avoided stratification (not applicable for regression)
-- **Error fixed:** Inconsistent naming - changed Y_train/Y_test to y_train/y_test (same mistake as Project 1!)
-- Verified all shapes after split
-
-✅ **Task 4:** Model Training (XGBoost) (COMPLETED)
-- Initialized XGBRegressor() with default parameters
-- Trained model using `.fit(X_train, y_train)`
-- Generated predictions on both training and test sets
-- **Error fixed:** Typo in variable name - changed `trest_data_prediction` to `test_data_prediction` (similar to `traning` typo pattern!)
-- First time using tree-based ensemble algorithm (XGBoost)
-
-✅ **Task 5:** Model Evaluation (Regression Metrics) (COMPLETED)
-- Calculated R² score for training (0.9446) and test (0.8301)
-- Calculated MAE for training (0.193) and test (0.310)
-- Calculated RMSE for training (0.272) and test (0.472)
-- **Good practice:** Used `root_mean_squared_error()` directly instead of manual sqrt calculation
-- **Key finding:** Model shows overfitting (11.4% R² drop, 61% MAE increase from train to test)
-- First time working with regression evaluation metrics (previously used accuracy for classification)
+None yet - Project just started!
 
 ### Current Task
-**Task 6:** Project Wrap-up & Reflection
+**Task 1:** Data Loading and Initial Exploration
+- Import libraries (pandas, numpy, matplotlib, seaborn, sklearn, RandomForestRegressor)
+- Load CSV data
+- Display basic info (shape, columns, dtypes, head)
+- Check for missing values
+- Understand what each feature represents
 
 ### Upcoming Tasks
-- Discuss results
-- Compare with previous projects
-- Suggest improvements
+**Task 2:** Data Visualization & Correlation Analysis
+- Visualize target distribution
+- Analyze correlations between features and gold price
+- Create relevant plots
+
+**Task 3:** Feature Engineering & Data Preparation
+- Handle Date column (drop or extract features)
+- Separate features and target
+- Train-test split
+
+**Task 4:** Model Training (RandomForest)
+- Initialize RandomForestRegressor
+- Train the model
+- Make predictions
+
+**Task 5:** Model Evaluation
+- Calculate R², MAE, RMSE
+- Compare with XGBoost from Project 3
+
+**Task 6:** Model Analysis & Wrap-up
+- Analyze results
+- Discuss RandomForest vs XGBoost differences
 
 ---
 
@@ -144,6 +131,15 @@
 - Notable: Excellent generalization (only 1.39% drop), 315 support vectors
 - Date Completed: 2026-02-16
 
+✅ **Project 3: California Housing Price Prediction with XGBoost** (COMPLETED)
+- Algorithm: XGBoost Regressor (Extreme Gradient Boosting)
+- Dataset: 20,640 samples, 8 features, regression
+- Final Performance: Test R² = 0.8301, MAE = 0.310 ($31k), RMSE = 0.472 ($47k)
+- Key Achievement: First regression project, learned XGBoost, evaluated with R²/MAE/RMSE
+- Skills Learned: Regression vs classification, correlation analysis, overfitting detection, tree-based ensembles
+- Notable: Model showed overfitting (training R² 0.9446 vs test 0.8301), strong predictive power (83% variance explained)
+- Date Completed: 2026-02-18
+
 ---
 
 ## Next Steps
@@ -154,4 +150,4 @@
 ---
 
 *Last Updated:* 2026-02-18
-*Current Status:* Project 3 - Task 6 (Project Wrap-up)
+*Current Status:* Project 4 - Task 1 (Data Loading and Initial Exploration)
