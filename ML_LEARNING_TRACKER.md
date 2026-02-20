@@ -64,20 +64,25 @@
 - **Error fixed:** Scatter plot axes were backwards (target on x-axis) - corrected to show feature → target relationship
 - Economic insight: Gold and silver move together strongly (precious metals correlation)
 
+✅ **Task 3:** Feature Engineering & Data Preparation (COMPLETED)
+- Dropped Date column (string type, not usable in RandomForest)
+- Created feature matrix X with 4 features: SPX, USO, SLV, EUR/USD
+- Extracted target variable y (GLD - gold prices)
+- Split data: 1,832 training samples (80%), 458 test samples (20%)
+- Used test_size=0.2, random_state=2, no stratification (regression)
+- **No errors!** Proper lowercase naming conventions (y_train, y_test) - learned from Project 3!
+
+✅ **Task 4:** Model Training (RandomForest) (COMPLETED)
+- Initialized RandomForestRegressor with n_estimators=100
+- Set random_state=2 for reproducibility
+- Trained model using `.fit(X_train, y_train)`
+- Generated predictions on both training and test sets
+- **Minor fix:** Initially forgot random_state parameter - added after reminder
+
 ### Current Task
-**Task 3:** Feature Engineering & Data Preparation
+**Task 5:** Model Evaluation
 
 ### Upcoming Tasks
-- Handle Date column (drop or extract features)
-- Separate features and target
-- Train-test split
-
-**Task 4:** Model Training (RandomForest)
-- Initialize RandomForestRegressor
-- Train the model
-- Make predictions
-
-**Task 5:** Model Evaluation
 - Calculate R², MAE, RMSE
 - Compare with XGBoost from Project 3
 
@@ -154,4 +159,4 @@
 ---
 
 *Last Updated:* 2026-02-18
-*Current Status:* Project 4 - Task 3 (Feature Engineering & Data Preparation)
+*Current Status:* Project 4 - Task 5 (Model Evaluation)
