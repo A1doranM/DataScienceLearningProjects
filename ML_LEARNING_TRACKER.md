@@ -22,53 +22,11 @@
 ---
 
 ## Current Project
-**Status:** 🏗️ In Progress
-
-**Project Name:** Customer Segmentation with K-Means Clustering
-
-**Project Description:** Build an UNSUPERVISED LEARNING model using K-Means Clustering to segment mall customers into groups based on their income and spending patterns. This is your first unsupervised learning project - NO target variable, NO train-test split!
-
-**Project Goals:**
-- Understand unsupervised learning (no labels/target)
-- Learn K-Means Clustering algorithm
-- Use the Elbow Method to find optimal number of clusters
-- Visualize customer segments with colored scatter plots
-- Extract business insights from cluster analysis
-
-**Dataset:** Mall Customers Data (CSV file)
-- **200 samples** - mall customer data
-- **Features:** CustomerID, Gender, Age, Annual Income (k$), Spending Score (1-100)
-- **Target:** NONE - unsupervised learning!
-- **Key insight:** Group customers by Annual Income and Spending Score
-
-**Algorithm:** K-Means Clustering
-**Files:** `5. Customer Segmentation\0. Customer Segmentation.ipynb`, `5. Customer Segmentation\mall_customers.csv`
+**Status:** ✅ Complete - Looking for next project
 
 ---
 
 ## Task Breakdown
-
-### Completed Tasks
-None yet - Project just started!
-
-### Current Task
-**Task 1:** Data Loading and Initial Exploration
-
-### Upcoming Tasks
-**Task 2:** Finding Optimal Clusters (Elbow Method)
-- Calculate WCSS for k=1 to 10
-- Plot the elbow curve
-- Identify optimal k
-
-**Task 3:** Train K-Means Model
-- Initialize KMeans with optimal k
-- Fit to data
-- Get cluster labels
-
-**Task 4:** Visualize Customer Segments
-- Scatter plot with colored clusters
-- Mark cluster centroids
-- Interpret business meaning of each segment
 
 ---
 
@@ -90,6 +48,9 @@ None yet - Project just started!
 - **Returns vs Absolute prices**: Predicting % changes is harder for tree models than absolute prices in low-noise datasets
 - **Model extrapolation failure**: ML models cannot predict beyond training range - always check data distribution before testing
 - **Time-based splits**: For time-series data, always split chronologically to avoid future data leakage
+- **Unsupervised learning**: No target variable, no train-test split - K-Means finds patterns by itself
+- **plt.legend() placement**: Must be called ONCE after ALL scatter plots - calling after each plot excludes later plots from the legend
+- **K-Means fit_predict()**: Returns cluster label for each sample (0 to k-1); use `kmeans.cluster_centers_` for centroid coordinates
 
 ### Common Mistakes to Avoid
 - **Reference vs Copy**: Using `df2 = df1` creates a reference, not a copy; use `.copy()` to create independent dataframes
@@ -145,6 +106,14 @@ None yet - Project just started!
 - Notable: Much better generalization than XGBoost (1% vs 11.4% R² drop), strong feature (Silver 0.867 correlation) enabled excellent predictions
 - Date Completed: 2026-02-18
 
+✅ **Project 5: Customer Segmentation with K-Means Clustering** (COMPLETED)
+- Algorithm: K-Means Clustering (unsupervised learning)
+- Dataset: 200 samples, 5 features (CustomerID, Gender, Age, Annual Income, Spending Score)
+- Key Achievement: First unsupervised learning project - no target variable, no train-test split!
+- Skills Learned: K-Means algorithm, WCSS/Elbow Method, fit_predict(), cluster_centers_, multi-cluster visualization
+- Notable: Identified 5 distinct customer segments; "Target Customers" (High Income + High Spending) = most valuable segment
+- Date Completed: 2026-02-21
+
 ---
 
 ## Next Steps
@@ -155,4 +124,4 @@ None yet - Project just started!
 ---
 
 *Last Updated:* 2026-02-21
-*Current Status:* Project 5 - Task 1 (Customer Segmentation - Data Loading)
+*Current Status:* Project 5 Complete - Ready for Project 6
