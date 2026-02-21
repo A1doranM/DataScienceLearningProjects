@@ -22,11 +22,53 @@
 ---
 
 ## Current Project
-**Status:** ✅ Ready for Next Project
+**Status:** 🏗️ In Progress
 
-**No active project** - Project 4 completed successfully!
+**Project Name:** Big Mart Sales Prediction with XGBoost
 
-Ready to start a new project when you are.
+**Project Description:** Build a REGRESSION model using XGBoost to predict sales of products in Big Mart stores. This is your most complex preprocessing challenge yet - mixed data types, missing values, inconsistent categorical data, and multiple encoding steps!
+
+**Project Goals:**
+- Handle mixed data types (numerical + categorical)
+- Clean inconsistent categorical values (e.g. "Low Fat" vs "reg" vs "Regular")
+- Apply label encoding to multiple categorical columns
+- Handle missing values in multiple columns
+- Feature engineering (e.g. outlet age from establishment year)
+- Revisit XGBoost with a more complex real-world dataset
+
+**Dataset:** Big Mart Sales Data (CSV file)
+- **5,681 samples**
+- **Features:** Item_Identifier, Item_Weight, Item_Fat_Content, Item_Visibility, Item_Type, Item_MRP, Outlet_Identifier, Outlet_Establishment_Year, Outlet_Size, Outlet_Location_Type, Outlet_Type
+- **Target:** Item_Outlet_Sales (sales of the product)
+- **Key challenges:** Missing values (Item_Weight, Outlet_Size), inconsistent categories, categorical encoding
+
+**Algorithm:** XGBoost Regressor
+**Files:** `5. Big Mart Sales Prediction\0. Big Mart Sales Prediction.ipynb`, `5. Big Mart Sales Prediction\big_mart_data.csv`
+
+---
+
+## Task Breakdown
+
+### Completed Tasks
+None yet - Project just started!
+
+### Current Task
+**Task 1:** Data Loading and Initial Exploration
+
+### Upcoming Tasks
+**Task 2:** Data Cleaning & Preprocessing
+- Handle missing values (Item_Weight, Outlet_Size)
+- Standardize inconsistent categories (Low Fat / reg / Regular)
+- Label encode all categorical columns
+
+**Task 3:** Feature Engineering & Data Preparation
+- Create Outlet_Age from Outlet_Establishment_Year
+- Separate features and target
+- Train-test split
+
+**Task 4:** Model Training (XGBoost)
+
+**Task 5:** Model Evaluation
 
 ---
 
@@ -44,6 +86,10 @@ Ready to start a new project when you are.
 - **RandomForest vs XGBoost**: RandomForest builds trees in parallel (averaging predictions), XGBoost builds sequentially (correcting errors)
 - **RandomForest generalizes better**: On gold price dataset, RandomForest showed only 1% R² drop vs XGBoost's 11.4% drop
 - **Feature correlation importance**: Strong predictor (Silver 0.867 correlation) led to 98.85% test R² on gold prices
+- **KISS Principle**: Simple model (98.85% R²) outperformed over-engineered v3.0 model (3.77% R²) - complexity ≠ performance
+- **Returns vs Absolute prices**: Predicting % changes is harder for tree models than absolute prices in low-noise datasets
+- **Model extrapolation failure**: ML models cannot predict beyond training range - always check data distribution before testing
+- **Time-based splits**: For time-series data, always split chronologically to avoid future data leakage
 
 ### Common Mistakes to Avoid
 - **Reference vs Copy**: Using `df2 = df1` creates a reference, not a copy; use `.copy()` to create independent dataframes
@@ -108,5 +154,5 @@ Ready to start a new project when you are.
 
 ---
 
-*Last Updated:* 2026-02-20
-*Current Status:* ✅ Project 4 Complete - Ready for Next Project
+*Last Updated:* 2026-02-21
+*Current Status:* Project 5 - Task 1 (Data Loading and Initial Exploration)
