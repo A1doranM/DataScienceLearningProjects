@@ -24,26 +24,25 @@
 ## Current Project
 **Status:** 🏗️ In Progress
 
-**Project Name:** Big Mart Sales Prediction with XGBoost
+**Project Name:** Customer Segmentation with K-Means Clustering
 
-**Project Description:** Build a REGRESSION model using XGBoost to predict sales of products in Big Mart stores. This is your most complex preprocessing challenge yet - mixed data types, missing values, inconsistent categorical data, and multiple encoding steps!
+**Project Description:** Build an UNSUPERVISED LEARNING model using K-Means Clustering to segment mall customers into groups based on their income and spending patterns. This is your first unsupervised learning project - NO target variable, NO train-test split!
 
 **Project Goals:**
-- Handle mixed data types (numerical + categorical)
-- Clean inconsistent categorical values (e.g. "Low Fat" vs "reg" vs "Regular")
-- Apply label encoding to multiple categorical columns
-- Handle missing values in multiple columns
-- Feature engineering (e.g. outlet age from establishment year)
-- Revisit XGBoost with a more complex real-world dataset
+- Understand unsupervised learning (no labels/target)
+- Learn K-Means Clustering algorithm
+- Use the Elbow Method to find optimal number of clusters
+- Visualize customer segments with colored scatter plots
+- Extract business insights from cluster analysis
 
-**Dataset:** Big Mart Sales Data (CSV file)
-- **5,681 samples**
-- **Features:** Item_Identifier, Item_Weight, Item_Fat_Content, Item_Visibility, Item_Type, Item_MRP, Outlet_Identifier, Outlet_Establishment_Year, Outlet_Size, Outlet_Location_Type, Outlet_Type
-- **Target:** Item_Outlet_Sales (sales of the product)
-- **Key challenges:** Missing values (Item_Weight, Outlet_Size), inconsistent categories, categorical encoding
+**Dataset:** Mall Customers Data (CSV file)
+- **200 samples** - mall customer data
+- **Features:** CustomerID, Gender, Age, Annual Income (k$), Spending Score (1-100)
+- **Target:** NONE - unsupervised learning!
+- **Key insight:** Group customers by Annual Income and Spending Score
 
-**Algorithm:** XGBoost Regressor
-**Files:** `5. Big Mart Sales Prediction\0. Big Mart Sales Prediction.ipynb`, `5. Big Mart Sales Prediction\big_mart_data.csv`
+**Algorithm:** K-Means Clustering
+**Files:** `5. Customer Segmentation\0. Customer Segmentation.ipynb`, `5. Customer Segmentation\mall_customers.csv`
 
 ---
 
@@ -56,19 +55,20 @@ None yet - Project just started!
 **Task 1:** Data Loading and Initial Exploration
 
 ### Upcoming Tasks
-**Task 2:** Data Cleaning & Preprocessing
-- Handle missing values (Item_Weight, Outlet_Size)
-- Standardize inconsistent categories (Low Fat / reg / Regular)
-- Label encode all categorical columns
+**Task 2:** Finding Optimal Clusters (Elbow Method)
+- Calculate WCSS for k=1 to 10
+- Plot the elbow curve
+- Identify optimal k
 
-**Task 3:** Feature Engineering & Data Preparation
-- Create Outlet_Age from Outlet_Establishment_Year
-- Separate features and target
-- Train-test split
+**Task 3:** Train K-Means Model
+- Initialize KMeans with optimal k
+- Fit to data
+- Get cluster labels
 
-**Task 4:** Model Training (XGBoost)
-
-**Task 5:** Model Evaluation
+**Task 4:** Visualize Customer Segments
+- Scatter plot with colored clusters
+- Mark cluster centroids
+- Interpret business meaning of each segment
 
 ---
 
@@ -155,4 +155,4 @@ None yet - Project just started!
 ---
 
 *Last Updated:* 2026-02-21
-*Current Status:* Project 5 - Task 1 (Data Loading and Initial Exploration)
+*Current Status:* Project 5 - Task 1 (Customer Segmentation - Data Loading)
