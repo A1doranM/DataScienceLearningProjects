@@ -51,6 +51,10 @@
 - **Unsupervised learning**: No target variable, no train-test split - K-Means finds patterns by itself
 - **plt.legend() placement**: Must be called ONCE after ALL scatter plots - calling after each plot excludes later plots from the legend
 - **K-Means fit_predict()**: Returns cluster label for each sample (0 to k-1); use `kmeans.cluster_centers_` for centroid coordinates
+- **TF-IDF**: TF (term frequency) × IDF (inverse document frequency) - common words penalized, rare meaningful words boosted; `stop_words='english'` removes noise words
+- **Cosine Similarity**: Measures angle between vectors (not distance); 1.0 = identical, 0.0 = completely different; result is N×N matrix for N items
+- **Content-Based vs Collaborative Filtering**: Content-based uses item features (what the movie is about); collaborative uses user behavior (who liked what)
+- **difflib.get_close_matches()**: Fuzzy string matching - handles typos/partial titles; returns closest matches from a list
 
 ### Common Mistakes to Avoid
 - **Reference vs Copy**: Using `df2 = df1` creates a reference, not a copy; use `.copy()` to create independent dataframes
@@ -114,14 +118,35 @@
 - Notable: Identified 5 distinct customer segments; "Target Customers" (High Income + High Spending) = most valuable segment
 - Date Completed: 2026-02-21
 
+✅ **Project 6: Movie Recommendation System** (COMPLETED)
+- Algorithm: TF-IDF Vectorizer + Cosine Similarity (Content-Based Filtering)
+- Dataset: 4,803 movies, 24 columns (genres, keywords, overview, cast, director used)
+- Key Achievement: First recommendation system - no labels, pure similarity-based approach
+- Skills Learned: TF-IDF vectorization, cosine similarity, sparse matrices (4803×29804), difflib fuzzy matching
+- Notable: Recommendations purely based on content (genres, cast, plot) - Avatar returned Aliens, Gravity, Guardians of the Galaxy; proactively imported `difflib` before it was taught
+- Date Completed: 2026-02-23
+
+---
+
+## Your Progress So Far
+
+| # | Project | Algorithm | Type | Performance |
+|---|---------|-----------|------|-------------|
+| 1 | Sonar Rock vs Mine | Logistic Regression | Binary Classification | 71.43% test accuracy |
+| 2 | Diabetes Prediction | SVM | Binary Classification | 76.62% test accuracy |
+| 3 | California Housing | XGBoost | Regression | R² = 0.8301 |
+| 4 | Gold Price Prediction | RandomForest | Regression | R² = 0.9885 |
+| 5 | Customer Segmentation | K-Means Clustering | Unsupervised | 5 clusters identified |
+| 6 | Movie Recommendation | TF-IDF + Cosine Similarity | Similarity-based | 4803×29804 TF-IDF matrix |
+
 ---
 
 ## Next Steps
-1. Student to describe the first lab project
+1. Student to describe the next lab project
 2. Teacher will break it down into tasks
 3. Begin implementation and review cycle
 
 ---
 
-*Last Updated:* 2026-02-21
-*Current Status:* Project 5 Complete - Ready for Project 6
+*Last Updated:* 2026-02-23
+*Current Status:* Project 6 Complete - Ready for Project 7
