@@ -55,6 +55,12 @@
 - **Cosine Similarity**: Measures angle between vectors (not distance); 1.0 = identical, 0.0 = completely different; result is N×N matrix for N items
 - **Content-Based vs Collaborative Filtering**: Content-based uses item features (what the movie is about); collaborative uses user behavior (who liked what)
 - **difflib.get_close_matches()**: Fuzzy string matching - handles typos/partial titles; returns closest matches from a list
+- **Transfer Learning**: Reuse a pre-trained model (VGG16) trained on millions of images; freeze base layers, add custom head, train only the new layers
+- **Freezing layers**: `layer.trainable = False` preserves pre-trained weights; only custom head trains
+- **ImageDataGenerator**: Handles rescaling (1./255), augmentation (rotation, flip, zoom), and train/val split in one object
+- **flow_from_directory**: Auto-loads images from folder structure (subfolder names = class labels), handles batching and resizing
+- **Image prediction pipeline**: load_img → img_to_array → rescale /255 → expand_dims (add batch dim) → model.predict
+- **Kaggle API**: `kaggle.json` needs both `username` and `key`; competition datasets may have nested zips
 
 ### Common Mistakes to Avoid
 - **Reference vs Copy**: Using `df2 = df1` creates a reference, not a copy; use `.copy()` to create independent dataframes
@@ -135,6 +141,15 @@
 - Notable: Recommendations purely based on content (genres, cast, plot) - Avatar returned Aliens, Gravity, Guardians of the Galaxy; proactively imported `difflib` before it was taught
 - Date Completed: 2026-02-23
 
+✅ **Project 8: Dog vs Cat Classification using Transfer Learning** (COMPLETED)
+- Algorithm: VGG16 (pre-trained on ImageNet) + Custom Dense Head
+- Dataset: 25,000 images (12,500 cats + 12,500 dogs) from Kaggle competition
+- Final Performance: 92% validation accuracy, Test loss = 0.197
+- Key Achievement: First computer vision project, first transfer learning project, first Kaggle dataset download!
+- Skills Learned: Transfer learning (VGG16), freezing layers, ImageDataGenerator (augmentation + rescaling), flow_from_directory, Kaggle API, image preprocessing for prediction (resize → normalize → expand_dims)
+- Notable: Only trained 6.4M params out of 21.1M total (14.7M frozen VGG16 params); achieved 92% accuracy in just 5 epochs; image augmentation (rotation, flip, zoom) for better generalization
+- Date Completed: 2026-02-27
+
 ---
 
 ## Your Progress So Far
@@ -148,6 +163,7 @@
 | 5 | Customer Segmentation | K-Means Clustering | Unsupervised | 5 clusters identified |
 | 6 | Movie Recommendation | TF-IDF + Cosine Similarity | Similarity-based | 4803×29804 TF-IDF matrix |
 | 7 | Breast Cancer Classification | Neural Network (Keras) | Binary Classification | **98.25% test accuracy** |
+| 8 | Dog vs Cat Classification | VGG16 Transfer Learning | Binary Classification (Images) | **92% val accuracy** |
 
 ---
 
@@ -158,5 +174,5 @@
 
 ---
 
-*Last Updated:* 2026-02-24
-*Current Status:* Project 7 Complete - Ready for Project 8
+*Last Updated:* 2026-02-27
+*Current Status:* Project 8 Complete - Ready for Project 9
