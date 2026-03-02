@@ -61,6 +61,9 @@
 - **flow_from_directory**: Auto-loads images from folder structure (subfolder names = class labels), handles batching and resizing
 - **Image prediction pipeline**: load_img → img_to_array → rescale /255 → expand_dims (add batch dim) → model.predict
 - **Kaggle API**: `kaggle.json` needs both `username` and `key`; competition datasets may have nested zips
+- **Multi-class vs Binary**: Binary uses sigmoid + binary_crossentropy + class_mode='binary'; Multi-class uses softmax + categorical_crossentropy + class_mode='categorical'
+- **np.argmax for multi-class**: With softmax output (10 probabilities), use `np.argmax(prediction)` to get the class index with highest probability
+- **ResNet50 vs VGG16**: ResNet50 is deeper (50 layers vs 16), outputs 2048 channels vs 512, uses skip connections to avoid vanishing gradients
 
 ### Common Mistakes to Avoid
 - **Reference vs Copy**: Using `df2 = df1` creates a reference, not a copy; use `.copy()` to create independent dataframes
@@ -150,6 +153,15 @@
 - Notable: Only trained 6.4M params out of 21.1M total (14.7M frozen VGG16 params); achieved 92% accuracy in just 5 epochs; image augmentation (rotation, flip, zoom) for better generalization
 - Date Completed: 2026-02-27
 
+✅ **Project 9: CIFAR-10 Object Recognition using ResNet50** (COMPLETED)
+- Algorithm: ResNet50 (pre-trained on ImageNet) + Custom Dense Head
+- Dataset: 50,000 images (5,000 per class), 10 classes (airplane, automobile, bird, cat, deer, dog, frog, horse, ship, truck)
+- Final Performance: Training limited by hardware (CPU-only) — full pipeline built and verified
+- Key Achievement: First multi-class image classification! Learned binary → multi-class transition (softmax, categorical_crossentropy, np.argmax)
+- Skills Learned: ResNet50 architecture, multi-class classification setup (softmax + categorical_crossentropy + class_mode='categorical'), np.argmax for prediction, organizing images via CSV labels
+- Notable: 49.3M total params (23.6M frozen ResNet50 + 25.7M trainable); ResNet50 outputs 2048 channels vs VGG16's 512; pipeline complete but training limited by local hardware
+- Date Completed: 2026-03-02
+
 ---
 
 ## Your Progress So Far
@@ -164,6 +176,7 @@
 | 6 | Movie Recommendation | TF-IDF + Cosine Similarity | Similarity-based | 4803×29804 TF-IDF matrix |
 | 7 | Breast Cancer Classification | Neural Network (Keras) | Binary Classification | **98.25% test accuracy** |
 | 8 | Dog vs Cat Classification | VGG16 Transfer Learning | Binary Classification (Images) | **92% val accuracy** |
+| 9 | CIFAR-10 Object Recognition | ResNet50 Transfer Learning | Multi-class Classification (10) | Hardware limited |
 
 ---
 
@@ -174,5 +187,5 @@
 
 ---
 
-*Last Updated:* 2026-02-27
-*Current Status:* Project 8 Complete - Ready for Project 9
+*Last Updated:* 2026-03-02
+*Current Status:* Project 9 Complete - Ready for Project 10
