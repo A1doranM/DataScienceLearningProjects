@@ -64,6 +64,11 @@
 - **Multi-class vs Binary**: Binary uses sigmoid + binary_crossentropy + class_mode='binary'; Multi-class uses softmax + categorical_crossentropy + class_mode='categorical'
 - **np.argmax for multi-class**: With softmax output (10 probabilities), use `np.argmax(prediction)` to get the class index with highest probability
 - **ResNet50 vs VGG16**: ResNet50 is deeper (50 layers vs 16), outputs 2048 channels vs 512, uses skip connections to avoid vanishing gradients
+- **Conv2D**: Slides small filter (e.g., 3×3) across image to detect features; first layers detect edges, deeper layers detect complex patterns
+- **MaxPooling2D**: Takes max value in each 2×2 window — reduces spatial dimensions while keeping important features
+- **Grayscale channel**: Grayscale images need reshape from (28,28) → (28,28,1) for Conv2D; RGB is (h,w,3)
+- **sparse_categorical_crossentropy**: Works with integer labels (0,1,2...); `categorical_crossentropy` requires one-hot encoded labels
+- **from_logits**: Set `True` if last layer has NO activation; set `False` if last layer has softmax/sigmoid
 
 ### Common Mistakes to Avoid
 - **Reference vs Copy**: Using `df2 = df1` creates a reference, not a copy; use `.copy()` to create independent dataframes
@@ -162,6 +167,15 @@
 - Notable: 49.3M total params (23.6M frozen ResNet50 + 25.7M trainable); ResNet50 outputs 2048 channels vs VGG16's 512; pipeline complete but training limited by local hardware
 - Date Completed: 2026-03-02
 
+✅ **Project 10: Fashion MNIST Classification using CNN** (COMPLETED)
+- Algorithm: Custom CNN — Conv2D(32) → MaxPool → Conv2D(64) → MaxPool → Conv2D(64) → Flatten → Dense(64) → Dense(10, softmax)
+- Dataset: 70,000 grayscale images (60K train + 10K test), 28×28 pixels, 10 fashion categories
+- Final Performance: 90.5% test accuracy, Test loss = 0.264
+- Key Achievement: First CNN built from scratch (no transfer learning)! Designed convolutional layers yourself.
+- Skills Learned: Conv2D filters/kernels, MaxPooling2D, grayscale channel reshape (28,28) → (28,28,1), sparse_categorical_crossentropy vs categorical_crossentropy, from_logits parameter
+- Notable: Trained in ~45 seconds total (5 epochs × ~9s) on CPU — much faster than transfer learning projects due to small 28×28 images; correctly predicted "Ankle boot" on first test
+- Date Completed: 2026-03-04
+
 ---
 
 ## Your Progress So Far
@@ -177,6 +191,7 @@
 | 7 | Breast Cancer Classification | Neural Network (Keras) | Binary Classification | **98.25% test accuracy** |
 | 8 | Dog vs Cat Classification | VGG16 Transfer Learning | Binary Classification (Images) | **92% val accuracy** |
 | 9 | CIFAR-10 Object Recognition | ResNet50 Transfer Learning | Multi-class Classification (10) | Hardware limited |
+| 10 | Fashion MNIST Classification | Custom CNN (Conv2D) | Multi-class Classification (10) | **90.5% test accuracy** |
 
 ---
 
@@ -187,5 +202,5 @@
 
 ---
 
-*Last Updated:* 2026-03-02
-*Current Status:* Project 9 Complete - Ready for Project 10
+*Last Updated:* 2026-03-04
+*Current Status:* Project 10 Complete - Ready for Project 11
