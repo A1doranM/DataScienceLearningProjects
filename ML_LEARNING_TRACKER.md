@@ -69,6 +69,10 @@
 - **Grayscale channel**: Grayscale images need reshape from (28,28) → (28,28,1) for Conv2D; RGB is (h,w,3)
 - **sparse_categorical_crossentropy**: Works with integer labels (0,1,2...); `categorical_crossentropy` requires one-hot encoded labels
 - **from_logits**: Set `True` if last layer has NO activation; set `False` if last layer has softmax/sigmoid
+- **Embedding layer**: Converts word indices to dense vectors — the model *learns* word meanings during training; input_dim must match vocabulary size
+- **LSTM**: Processes sequences step-by-step maintaining memory; understands word *order* and *context* (e.g., "not good" = negative)
+- **pad_sequences**: Makes variable-length sequences equal length; longer sequences get truncated, shorter ones get padded with 0s
+- **IMDB word index offset**: `imdb.get_word_index()` indices need `+3` because dataset reserves 0=padding, 1=start, 2=unknown, 3=unused
 
 ### Common Mistakes to Avoid
 - **Reference vs Copy**: Using `df2 = df1` creates a reference, not a copy; use `.copy()` to create independent dataframes
@@ -176,6 +180,15 @@
 - Notable: Trained in ~45 seconds total (5 epochs × ~9s) on CPU — much faster than transfer learning projects due to small 28×28 images; correctly predicted "Ankle boot" on first test
 - Date Completed: 2026-03-04
 
+✅ **Project 11: Sentiment Analysis using LSTM** (COMPLETED)
+- Algorithm: LSTM (Long Short-Term Memory) — Embedding(10000,128) → LSTM(128) → Dense(1, sigmoid)
+- Dataset: IMDB 50,000 movie reviews (25K train + 25K test), binary sentiment classification
+- Final Performance: 80.84% test accuracy, Test loss = 0.5427
+- Key Achievement: First NLP project! First recurrent neural network (RNN/LSTM)! Built text-to-prediction pipeline.
+- Skills Learned: Embedding layer, LSTM for sequence processing, pad_sequences, word index mapping with +3 offset, text preprocessing for prediction
+- Notable: Overfitting observed (train 96.5% vs test 80.8%); model correctly distinguished positive/negative/neutral custom reviews; ~1.41M trainable params
+- Date Completed: 2026-03-10
+
 ---
 
 ## Your Progress So Far
@@ -192,6 +205,7 @@
 | 8 | Dog vs Cat Classification | VGG16 Transfer Learning | Binary Classification (Images) | **92% val accuracy** |
 | 9 | CIFAR-10 Object Recognition | ResNet50 Transfer Learning | Multi-class Classification (10) | Hardware limited |
 | 10 | Fashion MNIST Classification | Custom CNN (Conv2D) | Multi-class Classification (10) | **90.5% test accuracy** |
+| 11 | Sentiment Analysis | LSTM | Binary Classification (NLP) | **80.84% test accuracy** |
 
 ---
 
@@ -202,5 +216,5 @@
 
 ---
 
-*Last Updated:* 2026-03-04
-*Current Status:* Project 10 Complete - Ready for Project 11
+*Last Updated:* 2026-03-10
+*Current Status:* Project 11 Complete - Ready for Project 12
