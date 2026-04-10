@@ -5,7 +5,9 @@
       "Bash(python3 insert_markdown_tok.py)",
       "Bash(rm insert_markdown_tok.py)",
       "Bash(python3 annotate_tok.py)",
-      "Bash(rm annotate_tok.py)"
+      "Bash(rm annotate_tok.py)",
+      "Bash(python3 fix_tok_diagram.py)",
+      "Bash(rm fix_tok_diagram.py)"
     ]
   }
 }
