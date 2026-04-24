@@ -19,23 +19,23 @@ Orchestrator doesn't implement block logic itself — it exercises the
 pieces that the other files define. Conceptually it drives the whole
 block end-to-end:
 
-==> Input tokens (B, T, d_model) ]
-                 |
-==> 1.1 Positional Encoding      ]
-                 |
-==> 1.5 LayerNorm 1              ]
-                 |
-==> 1.3/1.4 Multi-Head Attention ]
-                 |
-==> + residual                   ]
-                 |
-==> 1.5 LayerNorm 2              ]
-                 |
-==> 1.5 Feed-Forward             ]
-                 |
-==> + residual                   ]
-                 |
-==> Block output (B, T, d_model) ]
+    [ Input tokens (B, T, d_model) ]   <-- THIS FILE
+              |
+    [ 1.1 Positional Encoding      ]   <-- THIS FILE
+              |
+    [ 1.5 LayerNorm 1              ]   <-- THIS FILE
+              |
+    [ 1.3/1.4 Multi-Head Attention ]   <-- THIS FILE
+              |
+    [ + residual                   ]   <-- THIS FILE
+              |
+    [ 1.5 LayerNorm 2              ]   <-- THIS FILE
+              |
+    [ 1.5 Feed-Forward             ]   <-- THIS FILE
+              |
+    [ + residual                   ]   <-- THIS FILE
+              |
+    [ Block output (B, T, d_model) ]   <-- THIS FILE
 
 How to run
 ----------

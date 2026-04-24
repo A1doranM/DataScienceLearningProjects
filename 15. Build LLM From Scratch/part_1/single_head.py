@@ -11,23 +11,23 @@ Where this fits in the Transformer block
 This IS the attention mechanism — still a single head; the multi-head version
 that a real Transformer uses lives in multi_head.py.
 
-  [ Input tokens (B, T, d_model) ]
-                 |
-  [ 1.1 Positional Encoding      ]
-                 |
-  [ 1.5 LayerNorm 1              ]
-                 |
-==> 1.3/1.4 Multi-Head Attention ]
-                 |
-  [ + residual                   ]
-                 |
-  [ 1.5 LayerNorm 2              ]
-                 |
-  [ 1.5 Feed-Forward             ]
-                 |
-  [ + residual                   ]
-                 |
-  [ Block output (B, T, d_model) ]
+    [ Input tokens (B, T, d_model) ]
+              |
+    [ 1.1 Positional Encoding      ]
+              |
+    [ 1.5 LayerNorm 1              ]
+              |
+    [ 1.3/1.4 Multi-Head Attention ]   <-- THIS FILE
+              |
+    [ + residual                   ]
+              |
+    [ 1.5 LayerNorm 2              ]
+              |
+    [ 1.5 Feed-Forward             ]
+              |
+    [ + residual                   ]
+              |
+    [ Block output (B, T, d_model) ]
 
 Math — identical to section 1.2
 -------------------------------

@@ -9,23 +9,23 @@ final output so you can follow every multiplication on paper.
 
 Where this fits in the Transformer block
 ----------------------------------------
-  [ Input tokens (B, T, d_model) ]
-                 |
-  [ 1.1 Positional Encoding      ]
-                 |
-  [ 1.5 LayerNorm 1              ]
-                 |
-==> 1.3/1.4 Multi-Head Attention ]
-                 |
-  [ + residual                   ]
-                 |
-  [ 1.5 LayerNorm 2              ]
-                 |
-  [ 1.5 Feed-Forward             ]
-                 |
-  [ + residual                   ]
-                 |
-  [ Block output (B, T, d_model) ]
+    [ Input tokens (B, T, d_model) ]
+              |
+    [ 1.1 Positional Encoding      ]
+              |
+    [ 1.5 LayerNorm 1              ]
+              |
+    [ 1.3/1.4 Multi-Head Attention ]   <-- THIS FILE
+              |
+    [ + residual                   ]
+              |
+    [ 1.5 LayerNorm 2              ]
+              |
+    [ 1.5 Feed-Forward             ]
+              |
+    [ + residual                   ]
+              |
+    [ Block output (B, T, d_model) ]
 
 Math — scaled dot-product attention
 -----------------------------------
