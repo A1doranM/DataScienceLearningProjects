@@ -1,16 +1,69 @@
-"""1.2 Self-attention from first principles on a tiny example (NumPy only).
-We use T=3 tokens, d_model=4, d_k=d_v=2, single-head.
-This script prints intermediate tensors so you can trace the math.
+"""1.2 Self-attention from first principles — tiny NumPy example.
 
-Dimensions summary (single head)
+What this file does
+-------------------
+Runs scaled dot-product attention on a hand-picked toy input (T=3, d_model=4,
+d_k=2, single head) with fixed W_q, W_k, W_v — no learnable parameters, no
+PyTorch. Prints Q, K, V, attention scores, causal-masked weights, and the
+final output so you can follow every multiplication on paper.
+
+Where this fits in the Transformer block
+----------------------------------------
+  [ Input tokens (B, T, d_model) ]
+                 |
+  [ 1.1 Positional Encoding      ]
+                 |
+  [ 1.5 LayerNorm 1              ]
+                 |
+==> 1.3/1.4 Multi-Head Attention ]
+                 |
+  [ + residual                   ]
+                 |
+  [ 1.5 LayerNorm 2              ]
+                 |
+  [ 1.5 Feed-Forward             ]
+                 |
+  [ + residual                   ]
+                 |
+  [ Block output (B, T, d_model) ]
+
+Math — scaled dot-product attention
+-----------------------------------
+    Q = X @ W_q        K = X @ W_k        V = X @ W_v
+    S = Q @ K^T / sqrt(d_k)                          # raw similarity scores
+    S[i, j] = -infinity for j > i                    # causal mask
+    W = softmax(S, dim=-1)                           # row-stochastic weights
+    Output = W @ V                                   # weighted values
+
+Intuition — the database analogy
 --------------------------------
-X:          (B=1, T=3, d_model=4)
-Wq/Wk/Wv:   (d_model=4, d_k=2)
-Q,K,V:      (1, 3, 2)
-Scores:     (1, 3, 3)   = Q @ K^T
-Weights:    (1, 3, 3)   = softmax over last dim
-Output:     (1, 3, 2)   = Weights @ V
+    Q : "what am I looking for?"    (one query vector per token)
+    K : "what do I contain?"        (one key vector per token)
+    V : "what will I share?"        (one value vector per token)
+
+For each query row, we compute its dot product with every key row (similarity),
+scale down by sqrt(d_k) so variances don't blow up, mask out future positions,
+softmax-normalize to get attention weights, then take the corresponding
+weighted sum of the value rows.
+
+Visualization
+-------------
+See notebook section 1.2 — a 4-panel figure showing:
+  scores  -->  after causal mask (with -inf above diagonal)
+          -->  after softmax (row-stochastic triangular pattern)
+          -->  final output = weights @ V
+Each cell has the actual number printed on top.
+
+Shapes (this script)
+--------------------
+  X:           (1, 3, 4)
+  W_q, W_k, W_v: each (4, 2)
+  Q, K, V:     each (1, 3, 2)
+  scores:      (1, 3, 3)   = Q @ K^T / sqrt(d_k)
+  weights:     (1, 3, 3)   = softmax(scores with causal mask)
+  output:      (1, 3, 2)   = weights @ V
 """
+
 import numpy as np
 
 np.set_printoptions(precision=4, suppress=True)

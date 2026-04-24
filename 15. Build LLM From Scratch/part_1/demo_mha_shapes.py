@@ -1,6 +1,56 @@
-"""Walkthrough of multi-head attention with explicit matrix math and shapes.
-Generates a text log at ./out/mha_shapes.txt.
+"""Walkthrough: prints every MHA intermediate tensor's shape, step by step.
+
+What this file does
+-------------------
+Runs one forward pass through MultiHeadSelfAttention with B=1, T=5, d_model=12,
+n_head=3, and prints the shape of every intermediate tensor — before and after
+the reshape / transpose / matmul / softmax / merge steps. Also writes the log
+to part_1/out/mha_shapes.txt so you can re-read it later.
+
+Use this as a checklist when reading multi_head.py — trace each print line
+back to the source to verify you understand the reshapes.
+
+Where this fits in the Transformer block
+----------------------------------------
+Exercises the MHA block specifically:
+
+  [ Input tokens (B, T, d_model) ]
+                 |
+  [ 1.1 Positional Encoding      ]
+                 |
+  [ 1.5 LayerNorm 1              ]
+                 |
+==> 1.3/1.4 Multi-Head Attention ]
+                 |
+  [ + residual                   ]
+                 |
+  [ 1.5 LayerNorm 2              ]
+                 |
+  [ 1.5 Feed-Forward             ]
+                 |
+  [ + residual                   ]
+                 |
+  [ Block output (B, T, d_model) ]
+
+What you'll see printed
+-----------------------
+    Input x:           (1, 5, 12)     = (B, T, d_model)
+    Linear qkv(x):     (1, 5, 36)     = (B, T, 3*d_model)
+    view to 5D:        (1, 5, 3, 3, 4)= (B, T, 3, heads, d_head)
+    q,k,v split:       each (1, 5, 3, 4)
+    transpose heads:   each (1, 3, 5, 4) = (B, heads, T, d_head)
+    scores q@k^T:      (1, 3, 5, 5)   = (B, heads, T, T)
+    softmax(weights):  (1, 3, 5, 5)
+    context @v:        (1, 3, 5, 4)   = (B, heads, T, d_head)
+    merge heads:       (1, 5, 12)     = (B, T, d_model)
+    final proj:        (1, 5, 12)     = (B, T, d_model)
+
+How to run
+----------
+    cd part_1
+    python demo_mha_shapes.py
 """
+
 import os
 import math
 import torch

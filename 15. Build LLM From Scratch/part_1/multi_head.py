@@ -1,3 +1,78 @@
+"""1.4 Multi-head self-attention with explicit shape tracing.
+
+What this file does
+-------------------
+Runs n_head independent attention heads in parallel over the same input, each
+operating in a d_head = d_model / n_head subspace, then concatenates their
+outputs and applies a final learned projection. A single combined W_qkv of
+shape (d_model, 3*d_model) replaces three separate matrices — identical math,
+faster on GPU.
+
+Where this fits in the Transformer block
+----------------------------------------
+  [ Input tokens (B, T, d_model) ]
+                 |
+  [ 1.1 Positional Encoding      ]
+                 |
+  [ 1.5 LayerNorm 1              ]
+                 |
+==> 1.3/1.4 Multi-Head Attention ]
+                 |
+  [ + residual                   ]
+                 |
+  [ 1.5 LayerNorm 2              ]
+                 |
+  [ 1.5 Feed-Forward             ]
+                 |
+  [ + residual                   ]
+                 |
+  [ Block output (B, T, d_model) ]
+
+Why multiple heads?
+-------------------
+A single attention head can only learn ONE pattern of "who should attend to
+whom". But language has many patterns happening simultaneously:
+  * head A might learn "attend to the previous word"   (local context)
+  * head B might learn "attend to the subject"          (syntactic)
+  * head C might learn "attend to punctuation"          (structural)
+Multiple heads let the model learn these in parallel.
+
+Math
+----
+    qkv = x @ W_qkv                                      # (B, T, 3*d_model)
+    split into q, k, v    each reshaped to              # (B, heads, T, d_head)
+    attn  = q @ k^T / sqrt(d_head)                      # (B, heads, T, T)
+    attn  = attn.masked_fill(causal_mask, -infinity)
+    w     = softmax(attn, dim=-1)
+    ctx   = w @ v                                       # (B, heads, T, d_head)
+    out   = concat heads (transpose+view)  @  W_o        # (B, T, d_model)
+
+Visualization
+-------------
+See notebook section 1.4:
+  * per-head attention heatmaps in a grid (from demo_visualize_multi_head.py)
+  * "split heads" visual: one big vector -> rows of colored slices per head
+
+Shapes (d_model=64, n_head=4, d_head=16, T=10)
+----------------------------------------------
+  input x             : (B, 10, 64)
+  after W_qkv         : (B, 10, 192)
+  view (B,T,3,H,d_h)  : (B, 10, 3, 4, 16)
+  q, k, v (unbind)    : each (B, 10, 4, 16)
+  transpose(1,2)      : each (B, 4, 10, 16)
+  scores q@k^T/sqrt   : (B, 4, 10, 10)
+  weights softmax     : (B, 4, 10, 10)
+  ctx = w @ v         : (B, 4, 10, 16)
+  merge back          : (B, 10, 64)
+  out = merge @ W_o   : (B, 10, 64)
+
+Parameter count
+---------------
+  W_qkv : d_model * (3 * d_model)   = 3 * d_model^2
+  W_o   : d_model * d_model         =     d_model^2
+  total : 4 * d_model^2             — the attention parameter budget.
+"""
+
 import math
 import torch
 import torch.nn as nn

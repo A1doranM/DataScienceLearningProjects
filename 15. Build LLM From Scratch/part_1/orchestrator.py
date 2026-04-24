@@ -1,3 +1,53 @@
+"""Part 1 orchestrator — runs tests and optional visualizations.
+
+What this file does
+-------------------
+Driver script for Part 1. Runs, in order:
+  1. attn_numpy_demo.py           (sanity-check the attention math on toy numbers)
+  2. pytest tests/test_attn_math.py     (NumPy math == PyTorch single-head)
+  3. pytest tests/test_causal_mask.py   (mask shape and values)
+  4. demo_mha_shapes.py           (print every MHA intermediate shape)
+  5. demo_visualize_multi_head.py (only with --visualize — saves PNGs to ./out/)
+
+All sub-scripts are invoked with their working directory set to part_1/ so
+their local imports (from multi_head import ..., from attn_mask import ...)
+resolve correctly.
+
+Where this fits in the Transformer block
+----------------------------------------
+Orchestrator doesn't implement block logic itself — it exercises the
+pieces that the other files define. Conceptually it drives the whole
+block end-to-end:
+
+==> Input tokens (B, T, d_model) ]
+                 |
+==> 1.1 Positional Encoding      ]
+                 |
+==> 1.5 LayerNorm 1              ]
+                 |
+==> 1.3/1.4 Multi-Head Attention ]
+                 |
+==> + residual                   ]
+                 |
+==> 1.5 LayerNorm 2              ]
+                 |
+==> 1.5 Feed-Forward             ]
+                 |
+==> + residual                   ]
+                 |
+==> Block output (B, T, d_model) ]
+
+How to run
+----------
+    cd part_1
+    python orchestrator.py              # tests + shape demo
+    python orchestrator.py --visualize  # also save attention heatmap PNGs
+
+Where output lives
+------------------
+    part_1/out/   — images and logs from the visualization / shape demos.
+"""
+
 # Repository layout (Part 1)
 #
 #   part_1/

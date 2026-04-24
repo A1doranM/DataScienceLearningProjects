@@ -1,3 +1,33 @@
+"""Plotting helpers for Part 1 visualizations.
+
+What this file does
+-------------------
+Two small helpers used by the demo scripts:
+
+  * save_matrix_heatmap(mat, title, filename, ...)
+      Saves a 2D array as a colored heatmap with a title, axis labels and
+      colorbar. Used for PE heatmaps, attention score matrices, etc.
+
+  * save_attention_heads_grid(weights, filename, title_prefix="Head")
+      Given a (1, H, T, T) tensor of attention weights, saves all H heads
+      in a single grid figure — one subplot per head, labeled "Head 0",
+      "Head 1", .... Used by demo_visualize_multi_head.py.
+
+All outputs are written to  part_1/out/  (directory is created if missing).
+
+Where this fits in the Transformer block
+----------------------------------------
+These are visualization utilities — they don't sit inside the block
+itself. They're called by the demo scripts and the walkthrough notebook
+to render matrices and attention maps.
+
+Design notes
+------------
+  * Uses Matplotlib defaults (no custom colormap or style) so outputs are
+    readable on any system.
+  * Figures are closed after saving to avoid memory buildup in loops.
+"""
+
 import os
 import numpy as np
 import matplotlib.pyplot as plt
