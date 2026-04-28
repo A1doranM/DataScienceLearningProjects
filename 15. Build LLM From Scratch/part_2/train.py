@@ -1,3 +1,58 @@
+"""2.4 Training loop -- optimize the tiny GPT on next-byte prediction.
+
+What this file does
+-------------------
+Runs the end-to-end Part 2 pretraining loop:
+  * load byte tokenizer and dataset
+  * build GPT
+  * sample batches
+  * compute cross-entropy loss
+  * backpropagate with AdamW
+  * optionally use AMP and gradient clipping
+  * periodically evaluate, sample, and save checkpoints
+
+Where this fits in the Part 2 training pipeline
+-----------------------------------------------
+    [ tokenizer.py + dataset.py ]
+              |
+    [ model_gpt.GPT ]
+              |
+    [ forward pass -> loss ]
+              |
+    [ backward pass + AdamW ]       <-- THIS FILE
+              |
+    [ model_best.pt / model_final.pt ] <-- THIS FILE
+              |
+    [ sample.py / eval_loss.py ]
+
+Connection to Part 1 and later parts
+------------------------------------
+Part 1 explained the computation inside one block. This file shows how those
+parameters learn from data. Part 4 expands this loop with BPE, schedules,
+gradient accumulation, logging, and robust checkpoint resume. Parts 6-9 reuse
+the same optimizer loop pattern with different datasets and objectives.
+
+Math
+----
+For every sampled batch:
+    logits, loss = model(x, y)
+    loss = mean cross-entropy over B*T next-token predictions
+    grad = d(loss) / d(parameters)
+    parameters <- AdamW(parameters, grad)
+
+Shapes
+------
+    x, y:    LongTensor [B, T]
+    logits:  FloatTensor [B, T, vocab_size]
+    loss:    scalar
+
+Visualization
+-------------
+See notebook section 2.4 -- Cross-Entropy + Training Step. It traces one
+target byte through logits, softmax, negative log likelihood, and one optimizer
+update.
+"""
+
 from __future__ import annotations
 import argparse, time
 import torch
@@ -64,11 +119,13 @@ def main():
     model.train()
     for step in range(1, args.steps + 1):
         xb, yb = ds.get_batch('train', args.batch_size, args.device)
+        # Optional AMP lowers precision inside the forward pass on CUDA only.
         with torch.cuda.amp.autocast(enabled=(args.amp and args.device.type == 'cuda')):
             _, loss = model(xb, yb)
         opt.zero_grad(set_to_none=True)
         scaler.scale(loss).backward()
         if args.grad_clip > 0:
+            # Unscale before clipping so the norm is measured in real units.
             scaler.unscale_(opt)
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
         scaler.step(opt)
@@ -98,6 +155,7 @@ def main():
         if args.sample_every > 0 and step % args.sample_every == 0:
             start = torch.randint(low=0, high=len(ds.train) - args.block_size - 1, size=(1,)).item()
             seed = ds.train[start:start + args.block_size].unsqueeze(0).to(args.device)
+            # A sample is a qualitative check: "what does the current model say?"
             out = model.generate(seed, max_new_tokens=args.sample_tokens, temperature=args.temperature, top_k=args.top_k, top_p=args.top_p)
             txt = tok.decode(out[0].cpu())
             print("\n================ SAMPLE ================\n" + txt[-(args.block_size + args.sample_tokens):] + "\n=======================================\n")

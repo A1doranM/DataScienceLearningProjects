@@ -1,3 +1,30 @@
+"""Part 2 orchestrator -- smoke-train, sample, and evaluate the tiny GPT.
+
+What this file does
+-------------------
+Runs the Part 2 scripts in the order a learner should try them:
+  1. train.py on a tiny corpus
+  2. sample.py from the best checkpoint
+  3. eval_loss.py on validation batches
+
+Where this fits in the Part 2 training pipeline
+-----------------------------------------------
+This file is not a model component. It is the driver that proves the Part 2
+pipeline works end to end:
+
+    raw text -> tokenizer -> dataset -> GPT -> loss -> checkpoint -> sample/eval
+
+Connection to Part 1 and later parts
+------------------------------------
+Part 1's orchestrator tested individual block pieces. Part 2's orchestrator
+tests the first complete pretraining loop. Later orchestrators follow the same
+pattern: unit tests first, then an optional end-to-end demo.
+
+Visualization
+-------------
+See notebook section 0 and the final recap for the same pipeline as a diagram.
+"""
+
 # Repository layout (Part 2)
 #
 #   part_2/

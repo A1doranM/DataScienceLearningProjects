@@ -1,3 +1,67 @@
+"""2.3 Tiny GPT -- Part 1 block becomes a trainable language model.
+
+What this file does
+-------------------
+Defines a compact decoder-only GPT:
+  * byte token embedding
+  * learned positional embedding
+  * repeated Transformer blocks
+  * final LayerNorm
+  * language-model head that predicts the next byte token
+
+The attention and FFN pieces mirror Part 1, but here they are wired into a full
+model that accepts integer token IDs and returns logits over the 256-byte
+vocabulary.
+
+Where this fits in the Part 2 training pipeline
+-----------------------------------------------
+    [ x: token IDs (B, T) ]
+              |
+    [ token + position embeddings ]     <-- THIS FILE
+              |
+    [ Transformer blocks from Part 1 ]   <-- THIS FILE
+              |
+    [ logits (B, T, vocab_size) ]        <-- THIS FILE
+              |
+    [ cross-entropy if targets exist ]
+              |
+    [ generate() for sampling ]
+
+Connection to Part 1 and later parts
+------------------------------------
+Part 1 built the Transformer block from positional information, attention,
+FFN, LayerNorm, and residuals. Part 2 wraps that block in embeddings, a final
+prediction head, loss, and generation. Part 3 modernizes these internals with
+RMSNorm, RoPE, SwiGLU, KV cache, and sliding windows. Parts 4-9 keep the same
+high-level LM interface while changing scale, data, and objectives.
+
+Math
+----
+    pos = [0, 1, ..., T-1]
+    x = tok_emb(idx) + pos_emb(pos)
+    x = Block_1(...Block_N(x)...)
+    logits = x @ W_vocab
+
+If targets are provided:
+    loss = CE(logits.reshape(B*T, vocab_size), targets.reshape(B*T))
+
+Sampling repeats:
+    p(next_token | context) = softmax(filtered(logits_last / temperature))
+
+Shapes
+------
+    idx:        LongTensor [B, T]
+    embeddings: FloatTensor [B, T, n_embd]
+    q,k,v:      FloatTensor [B, n_head, T, d_head]
+    logits:     FloatTensor [B, T, vocab_size]
+    loss:       scalar
+
+Visualization
+-------------
+See notebook sections 2.3-2.5. They trace token IDs through embeddings,
+attention blocks, logits, cross-entropy, and sampling filters.
+"""
+
 from __future__ import annotations
 import math
 import torch
@@ -17,13 +81,15 @@ class CausalSelfAttention(nn.Module):
 
     def forward(self, x: torch.Tensor):  # (B,T,C)
         B, T, C = x.shape
+        # One projection produces [Q | K | V], then view exposes the head axis.
         qkv = self.qkv(x).view(B, T, 3, self.n_head, self.d_head)
         q, k, v = qkv.unbind(dim=2)
+        # SDPA expects attention tensors as (B, heads, T, d_head).
         q = q.transpose(1, 2)
         k = k.transpose(1, 2)
         v = v.transpose(1, 2)
         scale = 1.0 / math.sqrt(self.d_head)
-        # PyTorch SDPA (uses flash when available)
+        # PyTorch SDPA computes softmax(q @ k^T * scale) @ v with causal masking.
         y = F.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=self.dropout.p if self.training else 0.0, is_causal=True)
         y = y.transpose(1, 2).contiguous().view(B, T, C)
         y = self.proj(y)
@@ -81,6 +147,7 @@ class GPT(nn.Module):
         B, T = idx.shape
         assert T <= self.block_size
         pos = torch.arange(0, T, device=idx.device).unsqueeze(0)
+        # idx is (B, T); token and position tables lift it to (B, T, n_embd).
         x = self.tok_emb(idx) + self.pos_emb(pos)
         x = self.drop(x)
         for blk in self.blocks:
@@ -89,6 +156,7 @@ class GPT(nn.Module):
         logits = self.head(x)
         loss = None
         if targets is not None:
+            # Cross-entropy expects a flat list of B*T classification problems.
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
         return logits, loss
 
@@ -101,6 +169,8 @@ class GPT(nn.Module):
         if idx.size(1) == 0:
             idx = torch.full((idx.size(0), 1), 10, dtype=torch.long, device=idx.device)
         for _ in range(max_new_tokens):
+            # Keep only the latest block_size tokens because the position table
+            # is defined for contexts up to self.block_size.
             idx_cond = idx[:, -self.block_size:]
             logits, _ = self(idx_cond)
             logits = logits[:, -1, :] / max(temperature, 1e-6)
