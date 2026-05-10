@@ -1,3 +1,82 @@
+"""3.2 RoPE — Rotary Position Embedding (precompute + apply).
+
+What this file does
+-------------------
+Implements Rotary Position Embeddings: position is injected by *rotating*
+each (x_2i, x_2i+1) feature pair of Q and K by a position-dependent angle.
+There is no PE table to add — instead, the dot product Q·K^T naturally
+becomes a function of the *relative* offset (j - i).
+
+  RoPECache       — precomputes cos/sin tables for positions 0..max_pos-1
+  apply_rope_single — rotates a single tensor (Q or K) given cos/sin
+
+Where this fits in the modern Transformer block
+-----------------------------------------------
+    [ Input tokens (B, T, d_model)        ]
+              |
+    [ 3.1 RMSNorm 1                       ]
+              |
+    [ 3.5 Modern Attention                ]
+        - project to Q, K, V
+        - apply RoPE to Q, K        <-- THIS FILE
+        - scaled-dot-product attention
+              |
+    [ + residual                          ]
+              |
+    [ ... (rest of block) ...             ]
+
+Why rotate in pairs?
+--------------------
+A 2D rotation by angle theta is the linear map:
+    (x, y) -> (x*cos - y*sin,  x*sin + y*cos)
+
+Applied at position p with theta_i = p * inv_freq[i], this gives each
+feature pair its own "clock hand" that ticks at a different rate as p
+changes. Then for two positions p and q:
+
+    < RoPE(q_p), RoPE(k_q) >  =  cos((q-p)*theta_i) * (q . k)  + ...
+
+i.e. the score depends only on (q - p), the *relative* offset — exactly
+what attention should care about.
+
+Compared to additive sinusoidal PE (Part 1), RoPE:
+  * works at any sequence length without retraining (extrapolation)
+  * lets you grow the cache lazily (`_build` doubles when needed)
+  * does not need a separate add-step in the model forward
+
+Math
+----
+For head_dim D (must be even), define inv_freq for i = 0, 2, 4, ..., D-2:
+    inv_freq[i] = 1 / 10000 ^ ( i / D )
+
+For position p:
+    theta_i_p   = p * inv_freq[i]
+    cos[p, i/2] = cos(theta_i_p)
+    sin[p, i/2] = sin(theta_i_p)
+
+Applied to a vector x of length D, split into pairs (x_0,x_1), (x_2,x_3) ...:
+    x_{2i}'   = x_{2i}  * cos - x_{2i+1} * sin
+    x_{2i+1}' = x_{2i}  * sin + x_{2i+1} * cos
+
+Visualization
+-------------
+See notebook section 3.2:
+  * cos/sin tables as heatmaps over (max_pos, D/2)
+  * one query vector rotated through positions 0..7 (vector field)
+  * dot product < RoPE(q_p), RoPE(k_q) > vs (q - p) — only depends on offset
+
+Shapes
+------
+  inv_freq        : (D/2,)
+  cos / sin tables: (max_pos, D/2)
+  cos / sin slice : (T, D/2)            for positions [start..start+T-1]
+  input  q or k   : (B, H, T, D)        D even
+  output rotated  : (B, H, T, D)        same shape
+
+Parameter count
+---------------
+  Zero! The cos/sin tables are deterministic functions of position.
+"""
 from __future__ import annotations
 import torch
 import math

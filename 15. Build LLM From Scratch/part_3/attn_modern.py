@@ -1,3 +1,92 @@
+"""3.5 Modern attention — RoPE + GQA + sliding window + sink + KV cache.
+
+What this file does
+-------------------
+The "kitchen sink" causal self-attention used by modern LLMs (Llama,
+Mistral, Phi). It composes five upgrades over the Part 1 vanilla MHA:
+
+  1) RoPE              — rotary position embedding inside Q and K
+  2) GQA               — Q has n_head heads, K/V share fewer n_kv_head heads
+  3) Sliding window    — restrict K/V to the last `sliding_window` tokens
+  4) Attention sink    — always keep first `attention_sink` tokens
+  5) Optional KV cache — concat past K/V from a passed-in cache (generation)
+
+Where this fits in the modern Transformer block
+-----------------------------------------------
+    [ Input tokens (B, T, d_model)        ]
+              |
+    [ 3.1 RMSNorm 1                       ]
+              |
+    [ 3.5 Modern Attention                ]   <-- THIS FILE
+        - Wq, Wk, Wv  (Wk/Wv smaller under GQA)
+        - apply RoPE to Q, K          (3.2)
+        - concat with KV cache         (3.4)
+        - crop [sink || last window]   (3.4)
+        - repeat_interleave K/V to H heads
+        - F.scaled_dot_product_attention(causal=True)
+        - merge heads, output proj
+              |
+    [ + residual                          ]
+              |
+    [ 3.1 RMSNorm 2  -> 3.3 SwiGLU FFN -> + residual -> output ]
+
+GQA in one sentence
+-------------------
+    n_head     = 8     (queries: 8 separate "lookup vectors" per token)
+    n_kv_head  = 2     (keys/values: only 2 distinct K and V vectors,
+                        each shared by group_size = n_head/n_kv_head = 4
+                        consecutive query heads)
+
+The KV cache is the *bandwidth* bottleneck during inference (you re-load it
+from HBM for every new token). Cutting the K/V tensors by 4x cuts the
+memory bandwidth by ~4x, with negligible quality loss in practice.
+
+Shapes (toy: B=1, T=4, d_model=12, n_head=4, n_kv_head=2, d_head=3)
+-------------------------------------------------------------------
+  input x          : (1, 4, 12)           = (B, T, d_model)
+  Wq(x)            : (1, 4, 12)           = (B, T, n_head * d_head)
+  Wk(x), Wv(x)     : (1, 4, 6)  each      = (B, T, n_kv_head * d_head)
+  q view + transp  : (1, 4, 4, 3)         = (B, n_head,    T, d_head)
+  k,v view + transp: (1, 2, 4, 3)         = (B, n_kv_head, T, d_head)
+  q,k after RoPE   : same shapes
+  with KV cache    : (1, 2, T_past+T, 3)   for k_all, v_all
+  after sink+win   : (1, 2, sink+window, 3) at most
+  expand to n_head : (1, 4, *, 3)         = repeat_interleave(group_size=2)
+  sdpa output      : (1, 4, T, 3)
+  merge heads      : (1, T, 12)           = (B, T, d_model)
+  output proj      : (1, T, 12)
+
+Math (one new query token, with cache, RoPE, GQA expand)
+--------------------------------------------------------
+    q  = RoPE_pos(  W_q  x )                    # (B, H,  T, D)
+    k  = RoPE_pos(  W_k  x )                    # (B, Hk, T, D)
+    v  =           W_v  x                       # (B, Hk, T, D)
+    k_all, v_all = cat([cache, k|v], dim=T)
+    crop to [sink || last window]
+    expand K,V from Hk to H (each K row repeated group_size times)
+    scores = q @ k_all^T / sqrt(D)              # (B, H, T, T_all)
+    weights = softmax( scores + causal_mask )
+    out     = weights @ v_all                   # (B, H, T, D)
+    return  out @ W_o, new_cache
+
+Visualization
+-------------
+See notebook section 3.5:
+  * GQA grouping diagram (4 query heads -> 2 KV heads)
+  * sliding-window + sink mask on a long T (visual diagonal band + leftmost cols)
+  * cache growth timeline (length over generation steps)
+
+Parameter count (no biases)
+---------------------------
+  W_q : d_model * (n_head    * d_head) = d_model^2
+  W_k : d_model * (n_kv_head * d_head) = d_model^2 / group_size
+  W_v : d_model * (n_kv_head * d_head) = d_model^2 / group_size
+  W_o : d_model * d_model              = d_model^2
+
+  total: 2 * d_model^2 + 2 * d_model^2 / group_size
+      vs full MHA: 4 * d_model^2
+      savings:    2 * d_model^2 * (1 - 1/group_size)   for K and V
+"""
 from __future__ import annotations
 import math, torch
 import torch.nn as nn
