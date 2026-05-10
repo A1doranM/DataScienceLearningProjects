@@ -1,3 +1,49 @@
+"""3.8 demo_generate.py — time cached vs nocache generation.
+
+What this file does
+-------------------
+Builds an *un-trained* GPTModern with the modernization flags you choose,
+then runs two generations from the same prompt:
+
+  1) `model.generate(...)`         — with KV cache + sliding window + sink
+  2) `model.generate_nocache(...)` — recomputes the full window each step
+
+It prints elapsed time for each, plus the decoded output. Because the
+model is untrained, the text is gibberish — the point is the *speed gap*
+and that the two paths produce identical token sequences (when sampling
+is deterministic via temperature=0).
+
+Where this fits in the modern Transformer block
+-----------------------------------------------
+Exercises the full GPTModern (3.7) in inference mode:
+
+    [ Token IDs (B, 1) ]
+            |
+    [ GPTModern.forward(idx, kv_cache_list, start_pos) ]   <-- THIS FILE
+            |
+    [ next-token logits -> top-k/p sample -> append -> repeat ]
+
+How to run
+----------
+    cd part_3
+    python demo_generate.py --rmsnorm --rope --swiglu --sliding_window 64 --sink 4 --tokens 200
+
+Flags
+-----
+  --rmsnorm          : use RMSNorm instead of LayerNorm
+  --rope             : use RoPE inside attention
+  --swiglu           : use SwiGLU FFN instead of GELU MLP
+  --sliding_window N : crop K/V to last N positions (per layer)
+  --sink S           : keep first S tokens always (attention sink)
+  --group_size G     : n_kv_head = n_head / G   (GQA)
+  --tokens N         : how many new tokens to generate
+  --cpu              : force CPU even if CUDA is available
+
+Expected behavior
+-----------------
+With cache, generation should be roughly N x faster than nocache for
+N new tokens, since past K/V are reused instead of recomputed.
+"""
 import argparse, torch
 from tokenizer import ByteTokenizer
 from model_modern import GPTModern

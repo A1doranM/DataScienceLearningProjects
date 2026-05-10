@@ -1,3 +1,84 @@
+"""3.7 GPTModern — full model with token embedding, N modern blocks, head.
+
+What this file does
+-------------------
+Wraps `TransformerBlockModern` (3.6) into a full causal LM:
+
+    token ids -> nn.Embedding -> dropout
+              -> [TransformerBlockModern x N] (each carries its own KVCache)
+              -> nn.Identity / LayerNorm
+              -> nn.Linear(d_model, vocab_size)
+              -> logits
+
+There is NO separate positional embedding — RoPE inside the attention
+layers handles position. This is one of the practical wins of RoPE:
+nothing to add at the input, nothing extra to manage in `forward`.
+
+Two generation paths are provided for benchmarking:
+  * `generate`         — uses KV cache (modern, fast: O(1) per new token)
+  * `generate_nocache` — recomputes the full cropped window every step
+                         (slow, useful as a sanity reference)
+
+Where this fits in the model architecture
+-----------------------------------------
+    [ Token IDs (B, T)                    ]   <-- THIS FILE
+              |
+    [ Token Embedding (B, T, d_model)     ]   <-- THIS FILE
+              |
+    [ Block 1   (3.6 Modern Block)        ]
+              |
+    [ Block 2                             ]
+              |
+            ... (n_layer total)
+              |
+    [ Block N                             ]
+              |
+    [ ln_f (Identity if RMSNorm else LN)  ]   <-- THIS FILE
+              |
+    [ LM head -> logits (B, T, vocab)     ]   <-- THIS FILE
+
+Why no learned positional embedding?
+------------------------------------
+RoPE rotates Q and K inside every attention layer. The token embedding
+itself has no position information, but it doesn't need any — by the time
+attention runs, RoPE has injected position into the dot products.
+
+Trade-off: this is also why the model can extrapolate to longer sequences
+than it was trained on (RoPE's tables grow lazily; a learned PE would
+have a hard cap at `block_size`).
+
+Generation step (with cache)
+----------------------------
+    step 0  : feed full prompt    , build initial caches  (start_pos = 0)
+    step t>0: feed only last token, update caches         (start_pos = cache_len)
+
+Memory grows linearly until sliding_window+sink kicks in, then it's bounded.
+
+Shapes
+------
+  idx          : (B, T)                       int64 token ids
+  tok_emb(idx) : (B, T, d_model)
+  blocks out   : (B, T, d_model)
+  logits       : (B, T, vocab_size)
+  loss (opt)   : scalar — F.cross_entropy on flattened logits & targets
+  caches       : list[KVCache] of length n_layer
+
+Visualization
+-------------
+See notebook section 3.7:
+  * model architecture diagram (token emb -> N blocks -> head)
+  * generation step diagram showing what gets re-used vs re-computed
+  * cached vs nocache wall-clock timing
+
+Parameter count (rough, no biases, vocab=256, d=128, n_layer=2, n_head=4, n_kv_head=2)
+-------------------------------------------------------------------------------------
+  Token emb       : vocab * d_model            = 256 * 128 = 32,768
+  Each block (~)  : 6 * d_model^2  (attn 3 + SwiGLU 3, all simplified)
+                  ~ 6 * 128^2      = 98,304
+  N blocks        : N * 98,304
+  LM head         : d_model * vocab            = 32,768
+  Final norm      : 0 or d_model
+"""
 from __future__ import annotations
 import torch
 import torch.nn as nn

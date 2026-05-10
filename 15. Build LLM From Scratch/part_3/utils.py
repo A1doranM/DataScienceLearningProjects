@@ -1,3 +1,26 @@
+"""Sampling helpers — top-k and top-p (nucleus) logit filtering.
+
+What this file does
+-------------------
+Used by GPTModern.generate to restrict the candidate set before sampling:
+
+  * top_k=K  : keep only the K largest logits, mask the rest to -inf
+  * top_p=P  : keep the smallest set whose softmax mass >= P, mask the rest
+
+Both modes preserve the relative scores of kept tokens; after softmax,
+masked positions become 0 and the kept set is renormalized implicitly.
+
+Why filter?
+-----------
+Unfiltered sampling occasionally picks very low-probability tokens, which
+in a long autoregressive generation tends to derail into nonsense. top-k
+and top-p concentrate the distribution on plausible continuations.
+
+Shapes
+------
+  logits in  : (B, vocab)
+  logits out : (B, vocab)   with masked entries set to float('-inf')
+"""
 from __future__ import annotations
 import torch
 
