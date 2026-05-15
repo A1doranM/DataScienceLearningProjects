@@ -1,6 +1,56 @@
+"""4.5 Logging backends — Noop / TensorBoard / Weights & Biases.
+
+What this file does
+-------------------
+Three interchangeable loggers behind the same `.log(step=..., **kwargs)`
+contract:
+
+  NoopLogger  -- discards everything, used when --log=none
+  TBLogger    -- wraps torch.utils.tensorboard.SummaryWriter, with extras:
+                  .hist(tag, tensor, step)
+                  .text(tag, str, step)
+                  .image(tag, img, step)
+                  .graph(model, example_input)
+                  .hparams(dict, dict)
+                  .flush() / .close()
+                  + auto-routing inside .log(): tensors with one element
+                  become scalars, small tensors become histograms, big
+                  tensors become {tag}/mean + {tag}/std scalars.
+  WBLogger    -- thin wrapper around `wandb.log(...)`.
+
+`init_logger("tensorboard"|"wandb"|"none", out_dir)` picks the backend.
+
+Where this fits in the training pipeline
+----------------------------------------
+    [ ... AdamW.step()  -> LR sched ]
+              |
+    [ 4.5 Logger                   ]  <-- THIS FILE
+              |
+    [ 4.4 Checkpoint               ]
+              |
+    [ next batch                   ]
+
+Auto-routing in `TBLogger.log(step, **kv)`
+------------------------------------------
+For each `(key, value)` pair:
+  * key starts with "text/"             -> add_text(key[5:], str(value))
+  * value is a 1-element tensor/ndarray -> add_scalar(key, float(value))
+  * value is a small tensor (<= 2048)   -> add_histogram(key, value)
+  * value is a large tensor             -> add_scalar(key/mean), add_scalar(key/std)
+  * value is a Python number            -> add_scalar(key, float(value))
+  * everything else                     -> silently dropped
+
+This lets `train.py` log `loss`, `lr`, gradient norms, and even tensors
+all through the same `.log(step=..., **kv)` call.
+
+Inspect the run
+---------------
+    tensorboard --logdir runs/part4-demo
+"""
 from __future__ import annotations
 import time
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 class NoopLogger:
     def log(self, **kwargs):

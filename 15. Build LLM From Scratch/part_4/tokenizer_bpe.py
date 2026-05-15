@@ -1,3 +1,63 @@
+"""4.1 BPE tokenizer — replace Part 2/3's byte tokenizer with a real subword one.
+
+What this file does
+-------------------
+Wraps HuggingFace `ByteLevelBPETokenizer` so we can:
+  * train BPE merges on one or more `.txt` files
+  * save vocab.json + merges.txt + tokenizer.json + bpe_meta.json
+  * reload later for both training and sampling
+  * encode(text) -> List[int], decode(ids) -> str
+
+Where this fits in the training pipeline
+----------------------------------------
+    [ raw text file ]
+              |
+    [ 4.1 BPE Tokenizer            ]   <-- THIS FILE
+              |
+    [ 4.1 Dataset / DataLoader     ]
+              |
+    [ forward: GPTModern (Part 3)  ]
+              |
+    [ CE loss                      ]
+              |
+    [ 4.3 AMP + grad accum         ]
+              |
+    [ AdamW.step()                 ]
+              |
+    [ 4.2 Warmup + Cosine LR       ]
+              |
+    [ 4.5 Logger / 4.4 Checkpoint  ]
+              |
+    [ next batch                   ]
+
+Why BPE (vs byte tokenizer from Part 2/3)?
+------------------------------------------
+A byte tokenizer assigns one ID per UTF-8 byte (vocab=256). Every word
+becomes ~4–8 tokens, so even a tiny corpus blows past the model's
+`block_size`. BPE finds the most frequent byte pairs and merges them
+into new tokens — common words and morphemes become a single ID.
+
+Concretely, on the same English text:
+  * byte tokenizer  : "learning"  -> 8 tokens
+  * BPE (8 k vocab) : "learning"  -> 1 or 2 tokens
+
+So BPE buys you ~4–8x effective context and ~4–8x cheaper training per
+character. Below ~8k vocab the table is too small to capture much; above
+~50k the embedding table dominates parameter count.
+
+Saved artifacts
+---------------
+After `tok.save(dir)`, you'll find:
+    dir/vocab.json       - {token: id}
+    dir/merges.txt       - learned merge rules
+    dir/tokenizer.json   - full HF Tokenizer state (preferred for load)
+    dir/bpe_meta.json    - {vocab_size, special_tokens}
+
+Shapes
+------
+  encode("I love deep learning") -> List[int] of length ~4 (typical for 8k+ vocab)
+  decode([id, id, id, id])       -> "I love deep learning"
+"""
 from __future__ import annotations
 import os, json
 from pathlib import Path

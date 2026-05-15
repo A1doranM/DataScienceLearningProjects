@@ -1,3 +1,30 @@
+"""4.7 Sample — load a Part 4 checkpoint and generate text.
+
+What this file does
+-------------------
+Reads a checkpoint produced by `train.py` (4.6) and uses it to:
+  1. Rebuild the GPTModern from the saved `config` (preferred) or infer
+     dimensions from the saved weight shapes if `config` is missing
+     (legacy fallback).
+  2. Load the BPE tokenizer (path stored in the sibling `tokenizer_dir.txt`).
+  3. Encode the prompt (or default to a single token), call
+     `model.generate(prompt, max_new_tokens=...)`, decode and print.
+
+Where this fits in the training pipeline
+----------------------------------------
+    [ runs/part4-*/model_last.pt   ]
+              |
+    [ Rebuild GPTModern + tokenizer]   <-- THIS FILE
+              |
+    [ model.generate()             ]
+              |
+    [ decode + print               ]
+
+How to run
+----------
+    cd part_4
+    python sample.py --ckpt runs/part4-demo/model_last.pt --tokens 100 --prompt "Once upon a time"
+"""
 from __future__ import annotations
 import argparse, torch
 from pathlib import Path

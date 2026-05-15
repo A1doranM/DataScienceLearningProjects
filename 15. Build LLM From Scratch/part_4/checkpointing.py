@@ -1,3 +1,68 @@
+"""4.4 Checkpointing — save / load full training state + TB logging helpers.
+
+What this file does
+-------------------
+Two responsibilities, kept in one place because they share state:
+
+  1. **Checkpointing** (save_checkpoint / load_checkpoint / atomic_save_all):
+     Persist enough state to resume *exactly* — model weights, optimizer,
+     scheduler, AMP scaler, current step, plus the model `config` so the
+     loader can rebuild an architecturally identical model and refuse to
+     load into a mismatched one.
+
+  2. **TensorBoard-only logging helpers** (`_log_*`, `_maybe_log_*`):
+     Wrappers that no-op if the logger isn't a `TBLogger`. Used by
+     `train.py` to log hparams, the model graph, param/grad global L2,
+     per-block Q/K/V histograms, throughput, and a sample generation.
+
+Where this fits in the training pipeline
+----------------------------------------
+    [ ... AdamW.step()             ]
+              |
+    [ 4.2 LR scheduler             ]
+              |
+    [ 4.5 Logger                   ]  <-- helpers in THIS FILE feed it
+              |
+    [ 4.4 Checkpoint               ]  <-- THIS FILE writes
+              |
+    [ next batch                   ]
+
+What's saved in `model_last.pt`
+-------------------------------
+A dict with:
+    model        : model.state_dict()
+    optimizer    : optim.state_dict()           (None if not provided)
+    scheduler    : sched.state_dict()           (if it has one)
+    amp_scaler   : scaler.state_dict()          (if AMP enabled)
+    step         : int (current optimizer step)
+    config       : dict (vocab_size, block_size, n_layer, n_head, n_embd,
+                          n_kv_head, dropout, use_rmsnorm, use_swiglu,
+                          rope, max_pos, sliding_window, attention_sink)
+    version      : "part4-v2"
+
+A sibling file `tokenizer_dir.txt` records the path of the BPE
+tokenizer used so `sample.py` (or a resumed `train.py`) can find it.
+
+The architecture-verify guard
+-----------------------------
+On `load_checkpoint`, if the saved `config` doesn't match the freshly
+built model (different vocab, layers, heads, etc.), we raise immediately
+instead of silently letting `load_state_dict(strict=False)` paper over a
+real mismatch. This is the single most common source of "model loads but
+samples gibberish" mistakes — we want it loud.
+
+Rolling per-step checkpoints
+----------------------------
+`atomic_save_all` writes:
+    out_dir/model_last.pt           -- always the freshest copy
+    out_dir/model_stepNNNNNNN.pt    -- a numbered copy for this step
+and garbage-collects old `model_step*.pt` files past `keep_last_k`.
+
+Shapes
+------
+  ckpt file        : single torch.save(...) blob, typically a few MB to GB
+  load returns     : int step (0 if no step recorded)
+"""
 from __future__ import annotations
 import os
 from pathlib import Path

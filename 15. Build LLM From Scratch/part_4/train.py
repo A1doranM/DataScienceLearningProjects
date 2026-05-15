@@ -1,3 +1,72 @@
+"""4.6 Train loop — the actual entry point that trains a Part 3 model.
+
+What this file does
+-------------------
+Glues every other module in Part 4 together into a working causal LM
+training run. Reads CLI args, sets up data + model + optimizer +
+scheduler + AMP + logger + checkpointer, and runs a loop that:
+
+  1) fetches a batch from the DataLoader (4.1)
+  2) forward + CE loss under autocast (4.3 AMP)
+  3) backward with grad scaling and accumulation (4.3)
+  4) every `accum` micro-batches:
+       - optimizer.step() under the scaler
+       - scheduler.step()                                    (4.2)
+       - increment step counter
+       - every save_every steps: atomic_save_all(...)        (4.4)
+       - every 50 steps: log loss/lr/throughput/grad-norm   (4.5)
+
+Plus:
+  * resume: if `model_last.pt` exists in `--out`, reload model + opt +
+    scheduler + scaler + step + tokenizer_dir; refuse to resume with a
+    different vocab or architecture
+  * SIGINT / SIGTERM: graceful save + exit (Ctrl+C-friendly)
+  * tokenizer_dir.txt sidecar so `sample.py` (and resumes) can find the
+    BPE tokenizer used
+
+Where this fits in the training pipeline
+----------------------------------------
+This IS the pipeline — it instantiates and orchestrates every other
+node in the master diagram from sections 4.1 - 4.5.
+
+CLI flags (most important)
+--------------------------
+  --data PATH              text file to train on
+  --out  DIR               where checkpoints + logs go    (default runs/part4)
+  --bpe / --vocab_size     train BPE tokenizer at vocab_size (recommended)
+  --block_size / --batch_size
+  --n_layer / --n_head / --n_embd / --dropout
+  --epochs / --steps       max optimizer steps for this run
+  --lr / --warmup_steps    base LR and warmup
+  --mixed_precision        enable AMP
+  --grad_accum_steps       gradient accumulation factor
+  --log tensorboard|wandb|none
+  --save_every / --keep_last_k
+
+Optimizer
+---------
+AdamW with (β1, β2) = (0.9, 0.95), weight_decay = 0.1 — Llama recipe.
+
+Resume policy (strict)
+----------------------
+If a checkpoint exists at `--out/model_last.pt`:
+  * tokenizer_dir.txt must exist (so we can find the original tokenizer)
+  * vocab_size must match the saved config
+  * architecture (block_size, n_layer, n_head, n_embd, n_kv_head) must
+    match the saved config
+
+These checks catch the classic resume gotchas before they corrupt training.
+
+How to run
+----------
+    cd part_4
+    python train.py --data ../part_2/tiny.txt --out runs/part4-demo \\
+        --bpe --vocab_size 8000 --steps 300 --batch_size 16 --block_size 128 \\
+        --n_layer 2 --n_head 2 --n_embd 128 \\
+        --mixed_precision --grad_accum_steps 2 --log tensorboard
+
+    tensorboard --logdir runs/part4-demo
+"""
 from __future__ import annotations
 import argparse, time, signal
 from pathlib import Path
