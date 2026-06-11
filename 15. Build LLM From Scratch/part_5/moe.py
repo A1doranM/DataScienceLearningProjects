@@ -1,3 +1,79 @@
+"""5.4 MoE layer — dispatch tokens to top-k experts, combine weighted outputs.
+
+What this file does
+-------------------
+The full Mixture-of-Experts layer: a drop-in replacement for the dense
+FFN sublayer of a Transformer block. Composes the router (5.1/5.2) with
+E expert MLPs (5.3):
+
+  1. flatten (B, T, C) -> (S, C) — routing is per *token*, batch ignored
+  2. gate: idx (S, k), weights (S, k), aux loss
+  3. dispatch: for each expert e and slot, select the tokens that chose
+     e, run them through Expert_e
+  4. combine: y[sel] += w[sel, slot] * Expert_e(x[sel])
+  5. reshape back to (B, T, C); return (y, aux)
+
+Where this fits in the Transformer block
+----------------------------------------
+The FFN slot — third treatment of the same sublayer across the course:
+
+    [ Input tokens (B, T, C)              ]
+              |
+    [ RMSNorm 1                            ]
+              |
+    [ Modern Attention (Part 3)            ]
+              |
+    [ + residual                           ]
+              |
+    [ RMSNorm 2                            ]
+              |
+    [ FFN slot:                            ]
+    [   Part 1: Linear-GELU-Linear (dense) ]
+    [   Part 3: SwiGLU          (dense)    ]
+    [   Part 5: MoE             (sparse)   ]   <-- THIS FILE
+              |
+    [ + residual                           ]
+              |
+    [ Block output (B, T, C) + aux loss    ]
+
+Math (dispatch / combine, per token s)
+--------------------------------------
+    y_s = sum_{j=1..k}  w[s, j] * Expert_{idx[s, j]}( x_s )
+
+Single-GPU implementation note: the double loop (experts x slots) with
+boolean masks is O(E*k) Python iterations but each expert only processes
+its own tokens — total work is still S*k expert passes. Production MoE
+replaces the loop with batched all-to-all dispatch across GPUs
+(expert parallelism, README 5.3). No capacity factor here: every routed
+token is processed, none are dropped.
+
+Training note
+-------------
+The aux loss must be added to the LM objective by the caller:
+    total_loss = ce_loss + lambda_aux * aux        (lambda_aux ~ 0.01)
+
+Visualization
+-------------
+See notebook section 5.4:
+  * 4 anchor tokens traced through router -> experts -> combine
+  * manual recomputation of one token's output verified against the layer
+  * primary-expert load histogram (demo_moe.py prints the same)
+
+Shapes (B=1, T=4, C=8, E=4, k=2)
+--------------------------------
+  input  x      : (1, 4, 8)
+  x_flat        : (4, 8)        S = 4
+  idx, w        : (4, 2) each
+  per-expert x_e: (S_e, 8)      S_e = tokens routed to expert e
+  y (combined)  : (4, 8) -> reshape (1, 4, 8)
+  aux           : scalar
+
+Parameter count
+---------------
+  router  : C*E + E              (negligible)
+  experts : E * 12*C^2           (SwiGLU, mult=4)
+  vs dense SwiGLU: 12*C^2  ->  E-fold capacity, k/E-fold relative compute
+"""
 from __future__ import annotations
 import torch, torch.nn as nn
 from gating import TopKGate

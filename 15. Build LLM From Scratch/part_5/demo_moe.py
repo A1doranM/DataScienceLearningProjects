@@ -1,3 +1,40 @@
+"""5.6 demo_moe.py — forward a random batch through the MoE, print routing stats.
+
+What this file does
+-------------------
+Builds an *untrained* MoE layer with your chosen size, runs one forward
+pass on random tokens, and prints:
+  * the output shape (must equal the input shape — drop-in FFN property)
+  * the load-balancing aux loss value
+  * a primary-expert load histogram (how many tokens picked each expert
+    as their top-1 choice)
+
+With random init the router is arbitrary but usually *roughly* uniform —
+you should see counts spread across experts, not all piled on one.
+
+Where this fits
+---------------
+Exercises the full 5.1 -> 5.4 pipeline:
+
+    [ random x (2, tokens/2, hidden) ]
+              |
+    [ MoE(dim, n_expert, k)          ]   <-- THIS FILE drives it
+              |
+    [ y + aux + routing histogram    ]
+
+How to run
+----------
+    cd part_5
+    python demo_moe.py --tokens 64 --hidden 128 --experts 4 --top_k 1
+
+Flags
+-----
+  --tokens N    : total tokens (split into batch of 2)
+  --hidden C    : model dim
+  --experts E   : number of experts
+  --top_k K     : experts per token
+  --cpu         : force CPU
+"""
 import argparse, torch
 from moe import MoE
 
