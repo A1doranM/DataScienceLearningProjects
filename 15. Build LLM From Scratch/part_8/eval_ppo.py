@@ -1,3 +1,74 @@
+"""8.7 Eval PPO — measure the tuned policy's average reward and compare it to the frozen SFT reference.
+
+What this file does
+-------------------
+After PPO training, we want a single number that says "did the policy get better?".
+This script is that scoreboard. It loads three things: the PPO-tuned policy, a
+FROZEN SFT reference policy (the starting point, before any RL), and the Part 7
+reward model (the judge). It then draws a small pool of prompts, lets BOTH policies
+write a response to each, and asks the reward model to score the response. The
+average reward over the pool is the metric. Higher tuned-vs-reference reward means
+PPO actually pushed the policy toward answers the judge likes.
+
+    for each prompt:
+        prefix   = "Human: ... Assistant:"          # prompt text only
+        y        = policy.generate(prefix)           # tuned take
+        y_old    = ref.generate(prefix)              # frozen SFT take (for comparison)
+        text     = format(prompt, policy_response)
+        r        = reward_model(text)                # judge gives one number
+    return mean(r over prompts)                      # the scoreboard
+
+Note: this tiny script returns the mean reward of the TUNED policy. It also
+generates the reference's take (y_old) on the same prompt so you can eyeball /
+extend the comparison, but only the tuned response is fed to the reward model here.
+
+Where this fits in the Part 8 RLHF-PPO loop
+-------------------------------------------
+    prompt
+       |
+    [ policy does a take: generate + record old_logp   (policy.py / rollout.py) ]
+       |
+    [ judge scores the take: reward model r            (part_7 RewardModel)     ]
+       |
+    [ KL leash: shaped_r = r - kl * (logp - ref_logp)  (vs frozen SFT reference)]
+       |
+    [ advantage = shaped_r - value baseline, normalized (train_ppo.py)          ]
+       |
+    [ PPO clipped update: min(unclipped, clipped)      (ppo_loss.py)            ]
+       |
+    [ AdamW step on the policy only                    (train_ppo.py)           ]
+       |
+    [ eval: avg reward, tuned policy vs frozen ref     (eval_ppo.py)            ]   <-- THIS FILE
+
+Math
+----
+The only "math" here is the metric itself: the mean reward-model score over the
+prompt pool.
+
+    metric = (1 / N) * sum_{i=1..N} r_i
+
+      N   = number of prompts sampled (n, default 16)
+      r_i = reward_model(format(prompt_i, response_i)) , a single scalar per prompt
+            (the RM's masked-mean-pooled sentence vector -> linear head -> one number)
+
+Higher metric = the judge likes the policy's answers more. You read it relative
+to the reference: tuned mean reward vs SFT mean reward.
+
+Visualization
+-------------
+See notebook section 8.7 — plots the average RM reward of the tuned policy next to
+the frozen SFT reference, showing whether PPO moved the score up.
+
+Shapes
+------
+  ids          : list[int] length L     prompt prefix encoded to token ids
+  x            : (1, T)                  one prompt row, last block_size ids, T <= block_size
+  y / y_old    : (1, T + <=128)          generate() appends up to 128 new tokens to the prompt
+  resp         : str                     decoded NEW tokens only (slice off the prompt)
+  z            : (1, T')                  formatted "prompt+response" re-encoded, T' <= block_size
+  rm(z)        : (1,)                     reward model: one scalar per row -> [0].item() = float r
+  rewards      : list[float] length N     one reward per prompt; mean is the returned metric
+"""
 from __future__ import annotations
 import argparse, torch
 from pathlib import Path
@@ -41,21 +112,21 @@ def score_policy(policy_ckpt: str, rm_ckpt: str, bpe_dir: str | None, n: int = 1
     prompts = sample_prompts(n)
     rewards = []
     for p in prompts:
-        prefix = format_prompt_only(p).replace('</s>', '')
-        ids = tok.encode(prefix)
-        x = torch.tensor([ids[-tok.block_size:]], dtype=torch.long, device=device)
+        prefix = format_prompt_only(p).replace('</s>', '')  # "Human: ... Assistant:" prompt only
+        ids = tok.encode(prefix)                             # list[int] length L
+        x = torch.tensor([ids[-tok.block_size:]], dtype=torch.long, device=device)  # (1, T), T <= block_size
         with torch.no_grad():
-            y = pol.generate(x, max_new_tokens=128, temperature=0.2, top_k=50)
-            y_old = ref.generate(x, max_new_tokens=128, temperature=0.2, top_k=50)
-        resp = tok.decode(y[0].tolist()[len(ids[-tok.block_size:]):])
-        resp_old = tok.decode(y_old[0].tolist()[len(ids[-tok.block_size:]):])
+            y = pol.generate(x, max_new_tokens=128, temperature=0.2, top_k=50)      # (1, T + <=128) tuned take
+            y_old = ref.generate(x, max_new_tokens=128, temperature=0.2, top_k=50)  # (1, T + <=128) frozen SFT take
+        resp = tok.decode(y[0].tolist()[len(ids[-tok.block_size:]):])      # decode NEW tokens only (drop prompt)
+        resp_old = tok.decode(y_old[0].tolist()[len(ids[-tok.block_size:]):])  # reference response, for comparison
 
         # compute RM reward on formatted full text
         from part_6.formatters import Example, format_example
-        text = format_example(Example(p, resp))
-        z = torch.tensor([tok.encode(text)[:tok.block_size]], dtype=torch.long, device=device)
+        text = format_example(Example(p, resp))             # stitch prompt+response into RM input string
+        z = torch.tensor([tok.encode(text)[:tok.block_size]], dtype=torch.long, device=device)  # (1, T'), T' <= block_size
         with torch.no_grad():
-            r = rm(z)[0].item()
+            r = rm(z)[0].item()                             # rm(z): (1,) -> [0].item() = one scalar reward (float)
         rewards.append(r)
     return sum(rewards)/max(1,len(rewards))
 

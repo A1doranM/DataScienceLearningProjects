@@ -1,3 +1,87 @@
+"""8.6 PPO Trainer — run one RLHF-PPO update loop that nudges the SFT policy toward higher reward.
+
+What this file does
+-------------------
+This is the conductor for the whole Part 8 loop. It loads ONE Part 6 SFT
+checkpoint twice: once as the trainable `policy` (which also grows a value
+head) and once as a frozen `ref` (the reference we are not allowed to drift
+too far from). It loads the Part 7 reward model, then repeats this per batch:
+
+    for each step:
+        prompts  = sample a few from the pool
+        seq      = policy.generate(prompt)        # the policy "does a take"
+        reward   = reward_model(prompt+response)  # one scalar at the LAST token
+        old_logp = log prob the CURRENT policy gave each generated token
+        ref_logp = log prob the FROZEN reference gives the same tokens
+        old_val  = value head's baseline for each token
+        kl       = old_logp - ref_logp            # per-token drift from ref
+        shaped_r = reward - kl_coef * kl          # the "KL leash"
+        adv      = (shaped_r - old_val), then normalized   # NO GAE here
+        loss     = ppo_losses(...)                # clipped surrogate + value loss
+        AdamW.step()                              # update the POLICY only
+
+Note: this does exactly ONE gradient pass per collected batch (the inline
+comment admits real PPO replays each batch several times). It is a teaching
+demo, not a production trainer.
+
+Where this fits in the Part 8 RLHF-PPO loop
+-------------------------------------------
+    prompt
+       |
+    [ policy does a take: generate + record old_logp   (policy.py / rollout.py) ]
+       |
+    [ judge scores the take: reward model r            (part_7 RewardModel)     ]
+       |
+    [ KL leash: shaped_r = r - kl * (logp - ref_logp)  (vs frozen SFT reference)]
+       |
+    [ advantage = shaped_r - value baseline, normalized (train_ppo.py)          ]
+       |
+    [ PPO clipped update: min(unclipped, clipped)      (ppo_loss.py)            ]
+       |
+    [ AdamW step on the policy only                    (train_ppo.py)           ]   <-- THIS FILE
+       |
+    [ eval: avg reward, tuned policy vs frozen ref     (eval_ppo.py)            ]
+
+Math
+----
+  KL leash (per action token, applied to the reward, NOT a separate loss):
+      kl       = old_logp - ref_logp          # log pi_policy(a) - log pi_ref(a)
+      shaped_r = reward - kl_coef * kl         # reward minus drift penalty
+                 (kl_coef = 0.01; reward is non-zero only at the final token)
+
+  Advantage (no GAE despite gamma/lam args being parsed):
+      returns  = shaped_r                      # target value = immediate shaped reward
+      adv      = returns - old_values          # how much better than the baseline
+      adv      = (adv - adv.mean()) / adv.std().clamp_min(1e-6)   # normalized
+
+  The clipped surrogate + value loss live in ppo_loss.py; this file just feeds it
+  (new_logp, old_logp, adv, new_values, old_values, returns) with clip_ratio=0.2.
+
+  Diagnostics (logged, not optimized):
+      KL_move = mean(old_logp - new_logp)      # how far the update moved the policy
+      KL_ref  = mean(new_logp - ref_logp)      # how far the policy now sits from ref
+
+Visualization
+-------------
+See notebook section 8.6 — the reward-vs-step / KL-vs-step curves showing the
+policy climbing reward while the KL leash keeps it close to the frozen reference.
+
+Shapes
+------
+  in_ids[i]            : list[int] length P_i      prompt tokens for one sample
+  out[0]               : (P_i + resp_len)          one generated sequence (prompt + response)
+  seq                  : (B, T)                    padded batch, PAD id = 2; T = max_len <= block_size
+  mask                 : (B, T) bool               True on RESPONSE (action) positions only
+  rewards              : (B, T)                    scalar reward placed at the last real token only
+  pol_lp / ref_lp      : (B, T-1)                  next-token logprob for seq[:,1:]
+  values               : (B, T-1)                  value baseline, sliced to align with pol_lp
+  act_mask = mask[:,1:]: (B, T-1) bool             which logprob positions are actions
+  old_logp/ref_logp/
+    old_values         : (N_act,)                  flattened over all action tokens in the batch
+  kl, shaped_r, returns,
+    adv                : (N_act,)                   one value per action token
+  new_logp/new_values  : (N_act,)                  recomputed after the forward pass for the update
+"""
 from __future__ import annotations
 import argparse, torch
 from pathlib import Path
@@ -87,14 +171,14 @@ def main():
         if len(batch_prompts) < args.batch_size:
             batch_prompts += prompts[:args.batch_size-len(batch_prompts)]
         texts = [format_prompt_only(p).replace("</s>", "") for p in batch_prompts]
-        in_ids = [tok.encode(t) for t in texts]
+        in_ids = [tok.encode(t) for t in texts]  # list of list[int]; one prompt's tokens each
 
         with torch.no_grad():
             out_ids = []
             for i, x in enumerate(in_ids):
-                idx = torch.tensor([x], dtype=torch.long, device=device)
-                out = policy.generate(idx, max_new_tokens=args.resp_len, temperature=0.2, top_k=3)
-                out_ids.append(out[0].tolist())
+                idx = torch.tensor([x], dtype=torch.long, device=device)  # (1, P_i)
+                out = policy.generate(idx, max_new_tokens=args.resp_len, temperature=0.2, top_k=3)  # (1, P_i+resp_len)
+                out_ids.append(out[0].tolist())  # prompt + generated response, as list[int]
 
         # split prompt/response per sample
         data = []
@@ -112,12 +196,12 @@ def main():
 
         # pad to same length
         policy_ctx = getattr(policy, "block_size", block_size)
-        max_len = min(policy_ctx, max(t[0].numel() for t in data))
+        max_len = min(policy_ctx, max(t[0].numel() for t in data))  # T (capped at block_size)
         B = len(data)
-        seq = torch.zeros(B, max_len, dtype=torch.long, device=device)
-        mask = torch.zeros(B, max_len, dtype=torch.bool, device=device)
-        last_idx = torch.zeros(B, dtype=torch.long, device=device)
-        rewards = torch.zeros(B, max_len, dtype=torch.float, device=device)
+        seq = torch.zeros(B, max_len, dtype=torch.long, device=device)   # (B, T) padded token ids
+        mask = torch.zeros(B, max_len, dtype=torch.bool, device=device)  # (B, T) True on response tokens
+        last_idx = torch.zeros(B, dtype=torch.long, device=device)       # (B,) index of each row's last real token
+        rewards = torch.zeros(B, max_len, dtype=torch.float, device=device)  # (B, T) reward only at last token
 
         for i, (ids, boundary, r_scalar) in enumerate(data):
             L_full = ids.numel()
@@ -134,40 +218,40 @@ def main():
 
         # logprobs & values for policy and reference
         # model_logprobs returns (B, T-1) for next-token logp; align to seq[:,1:]
-        pol_lp = model_logprobs(policy, seq)
-        ref_lp = model_logprobs(ref, seq)
+        pol_lp = model_logprobs(policy, seq)  # (B, T-1) logp the current policy gave seq[:,1:]
+        ref_lp = model_logprobs(ref, seq)     # (B, T-1) logp the frozen reference gives the same
         # values for seq positions (B,T)
         with torch.no_grad():
-            logits, values, _ = policy(seq, None)
-        values = values[:, :-1]  # align to pol_lp
+            logits, values, _ = policy(seq, None)  # values: (B, T)
+        values = values[:, :-1]  # (B, T-1) align to pol_lp
 
         # Select only action positions
-        act_mask = mask[:,1:]  # since logprobs are for predicting token t from <=t-1
-        old_logp = pol_lp[act_mask].detach()
-        ref_logp = ref_lp[act_mask].detach()
-        old_values = values[act_mask].detach()
+        act_mask = mask[:,1:]  # (B, T-1); logprobs predict token t from <=t-1, so drop the first column
+        old_logp = pol_lp[act_mask].detach()      # (N_act,) flattened over all action tokens
+        ref_logp = ref_lp[act_mask].detach()      # (N_act,)
+        old_values = values[act_mask].detach()    # (N_act,)
 
         # KL per action token and shaped rewards
-        kl = (old_logp - ref_logp)
-        shaped_r = rewards[:,1:][act_mask] - args.kl_coef * kl # penalty for drifting
+        kl = (old_logp - ref_logp)                              # (N_act,) drift from reference
+        shaped_r = rewards[:,1:][act_mask] - args.kl_coef * kl  # (N_act,) reward minus drift penalty
 
         # Compute advantages/returns with last‑step bootstrap = 0 (episodic per response)
         # Flatten by sequence order inside each sample; we’ll approximate by grouping tokens per sample using last_idx.
         # For tutorial simplicity, treat advantages = shaped_r - old_values (no GAE). Works for end-only reward.
-        returns = shaped_r  # target value = immediate shaped reward
-        adv = returns - old_values
+        returns = shaped_r  # (N_act,) target value = immediate shaped reward
+        adv = returns - old_values  # (N_act,) advantage = shaped reward above the value baseline
         # normalize adv
-        adv = (adv - adv.mean()) / (adv.std().clamp_min(1e-6))
+        adv = (adv - adv.mean()) / (adv.std().clamp_min(1e-6))  # (N_act,) zero-mean, unit-std
 
         # ----- UPDATE (single pass PPO for demo) -----
         # This step is done multiple times per batch in practice 
         policy.train()
-        logits_new, values_new_full, _ = policy(seq, None)
-        logp_full = torch.log_softmax(logits_new[:, :-1, :], dim=-1)
-        labels = seq[:,1:]
-        new_logp_all = logp_full.gather(-1, labels.unsqueeze(-1)).squeeze(-1)
-        new_logp = new_logp_all[act_mask]
-        new_values = values_new_full[:, :-1][act_mask]
+        logits_new, values_new_full, _ = policy(seq, None)  # logits_new: (B, T, V), values_new_full: (B, T)
+        logp_full = torch.log_softmax(logits_new[:, :-1, :], dim=-1)  # (B, T-1, V)
+        labels = seq[:,1:]  # (B, T-1) the actual next token at each position
+        new_logp_all = logp_full.gather(-1, labels.unsqueeze(-1)).squeeze(-1)  # (B, T-1) logp of taken tokens
+        new_logp = new_logp_all[act_mask]               # (N_act,) action-token logp after the update step
+        new_values = values_new_full[:, :-1][act_mask]  # (N_act,) recomputed value baselines
 
         from ppo_loss import ppo_losses
         out_loss = ppo_losses(new_logp, old_logp, adv, new_values, old_values, returns,
