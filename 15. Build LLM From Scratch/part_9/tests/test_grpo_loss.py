@@ -1,3 +1,10 @@
+"""Unit test — GRPO policy-only objective returns a scalar loss (notebook section 9.5).
+
+Proves ppo_policy_only_losses collapses a per-token batch (ratio=1.2, adv=1, clip_ratio=0.1)
+plus a KL penalty (kl_coef=0.1, kl_mean=0.5) into a single 0-dim total_loss, and that the KL
+penalty term (kl_ref) is carried through to the output. The 0-dim property is what lets the
+optimizer call .backward() on it. (No value loss here -- GRPO has no critic.)
+"""
 import torch
 from grpo_loss import ppo_policy_only_losses
 

@@ -1,3 +1,103 @@
+"""9.6 GRPO Trainer — run one RLHF-GRPO update loop that nudges the SFT policy toward higher reward.
+
+What this file does
+-------------------
+This is Part 8's `train_ppo.py` with two edits: generate a GROUP of completions per
+prompt, and replace the critic baseline with the group's average reward. It loads ONE
+Part 6 SFT checkpoint twice (trainable `policy` + frozen `ref`), loads the Part 7
+reward model, then repeats this per step:
+
+    for each step:
+        prompts  = P distinct prompts from the pool
+        for each prompt, for g in range(G):        # a GROUP of G takes per prompt
+            seq    = policy.generate(prompt)        # the policy "does a take"
+            reward = reward_model(prompt+response)  # one scalar PER TAKE (trajectory-level)
+        # ----- GROUP BASELINE (the GRPO heart) -----
+        group_mean[i] = mean reward over the takes sharing prompt i
+        traj_adv      = raw_rewards - group_mean    # A_i = r_i - group average
+        adv_flat      = broadcast traj_adv to each take's action tokens, then normalize
+        # ----- POLICY-ONLY UPDATE -----
+        new_logp = log prob the CURRENT policy gives each action token
+        kl_ref   = mean(new_logp - ref_logp)        # KL(new || ref) on action tokens
+        loss     = ppo_policy_only_losses(new_logp, old_logp, adv_flat,
+                                          kl_coef, kl_mean=kl_ref)  # clipped surrogate + KL penalty
+        AdamW.step()                                # update the POLICY only (value head ignored)
+
+Key differences from train_ppo.py:
+  - B = P * G trajectories (a group of G per prompt), not one per prompt.
+  - The baseline is the GROUP MEAN reward, not the value head. The value head is never read:
+    `logits_new, _, _ = policy(seq, None)` discards `values`.
+  - The KL enters via the LOSS (kl_coef * KL(new||ref)), not by shaping the reward.
+
+Two honest notes for readers:
+  - `kl_tok = old_logp - ref_logp` is computed and a comment mentions "trajectory-level KL
+    shaping", but that line is NEVER USED -- the advantage is pure (reward - group mean). KL
+    affects training only through the loss penalty. A vestigial leftover.
+  - The advantage is normalized by subtracting the group mean and then z-normalizing the whole
+    batch (global std). Canonical GRPO often divides each group by its OWN std; this build
+    subtracts the group mean then normalizes globally -- same spirit, slightly different math.
+
+Where this fits in the Part 9 RLHF-GRPO loop
+--------------------------------------------
+    prompt
+       |
+    [ policy does a GROUP of takes: G generations + old_logp  (policy.py / rollout.py) ]
+       |
+    [ judge scores each take: reward r_1..r_G                 (part_7 RewardModel)     ]
+       |
+    [ group baseline: A_i = r_i - mean(r over the group)      (train_grpo.py)          ]   <-- THIS FILE
+       |
+    [ clipped surrogate: min(unclipped, clipped)             (grpo_loss.py)           ]
+       |
+    [ + KL penalty in the loss: kl_coef * KL(new || ref)     (grpo_loss.py)           ]
+       |
+    [ AdamW step on the policy only (no value head)          (train_grpo.py)          ]   <-- THIS FILE
+       |
+    [ eval: avg reward, tuned policy vs frozen ref           (eval_ppo.py)            ]
+
+Math
+----
+  Group baseline (the defining GRPO step; G = group_size completions sharing a prompt):
+      group_mean_i = (1/|G|) * sum_{j in group(i)} reward_j      # the "curve" for that prompt
+      traj_adv_i   = reward_i - group_mean_i                      # beat-the-group-average
+      adv_flat     = traj_adv broadcast to each take's action tokens
+      adv_flat     = (adv_flat - adv_flat.mean()) / adv_flat.std().clamp_min(1e-6)   # normalized
+    Advantages within a group sum to ~0 (we subtracted the mean): always something to push
+    up and something to push down. NO value head, NO GAE -- one advantage per take.
+
+  KL penalty (applied in the loss, not the reward):
+      kl_ref = mean(new_logp - ref_logp)        # KL(pi_new || pi_ref) over action tokens
+      total  = policy_loss + kl_coef * kl_ref    # kl_coef = 0.01
+
+  The clipped surrogate itself lives in grpo_loss.py; this file feeds it
+  (new_logp, old_logp, adv_flat) with clip_ratio=0.2 and the kl_mean above.
+
+  Diagnostics (logged, not optimized):
+      KL_move = mean(old_logp - lp_post)         # how far the update moved the policy
+      KL_ref  = mean(lp_post - ref_logp)         # how far the policy now sits from ref
+
+Visualization
+-------------
+See notebook section 9.6 — one full GRPO step on tiny fresh models: a group of takes,
+their group-mean baseline, the resulting advantages, the policy-only clipped+KL loss,
+and the AdamW update (policy moves; ref + reward model stay frozen).
+
+Shapes
+------
+  prompt_in_ids[i]     : list[int]                 prompt tokens for prompt i
+  seq_list[k]          : (L_k,)                     one generated sequence (prompt + response)
+  prompt_id_of[k]      : int in [0, P)              which prompt (group) trajectory k belongs to
+  raw_rewards[k]       : float                      reward model score for take k (trajectory-level)
+  seq                  : (B, T)                     padded batch, PAD id = 2; B = P*G, T <= block_size
+  mask                 : (B, T) bool                True on RESPONSE (action) positions only
+  act_mask = mask[:,1:]: (B, T-1) bool              which logprob positions are actions
+  old_logp / ref_logp  : (N_act,)                   flattened over all action tokens (snapshot, no grad)
+  group_mean           : (B,)                       each take's group-average reward
+  traj_adv             : (B,)                       reward - group_mean, one per take
+  adv_flat             : (N_act,)                   traj_adv broadcast to action tokens, normalized
+  new_logp             : (N_act,)                   recomputed WITH grad for the update
+  loss                 : ()                         scalar from ppo_policy_only_losses(...).total_loss
+"""
 # train_grpo.py
 from __future__ import annotations
 import argparse, torch

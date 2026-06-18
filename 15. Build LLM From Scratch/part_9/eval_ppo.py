@@ -1,3 +1,66 @@
+"""9.7 GRPO Eval — average reward of the tuned policy vs the frozen SFT reference.
+
+What this file does
+-------------------
+The headline check for RLHF: did tuning actually raise the judge's scores? This
+script (still named `eval_ppo.py` -- a Part-8 leftover; GRPO reuses it unchanged)
+generates from BOTH the GRPO-tuned policy and a frozen SFT reference on a small
+prompt pool, scores each generation with the Part 7 reward model, and reports the
+average. A positive (policy - reference) gap is the result of the whole pipeline.
+
+    for each prompt:
+        y      = policy.generate(prompt)         # the tuned model's answer
+        y_old  = ref.generate(prompt)            # the frozen SFT reference's answer
+        r      = reward_model(prompt + y)        # judge scores the tuned answer
+    return mean(r)
+
+Honest notes for readers:
+  - The filename is `eval_ppo.py`, not `eval_grpo.py` -- GRPO inherits Part 8's eval verbatim.
+  - The reference checkpoint path is HARD-CODED: "../part_6/runs/sft-demo/model_last.pt".
+  - This tiny script averages reward of the TUNED policy only (y_old is generated but the
+    returned mean uses the tuned policy's reward); it demonstrates the mechanism, not a
+    rigorous A/B. The notebook 9.7 cell scores both sides and prints the delta.
+
+Where this fits in the Part 9 RLHF-GRPO loop
+--------------------------------------------
+    prompt
+       |
+    [ policy does a GROUP of takes: G generations + old_logp  (policy.py / rollout.py) ]
+       |
+    [ judge scores each take: reward r_1..r_G                 (part_7 RewardModel)     ]
+       |
+    [ group baseline: A_i = r_i - mean(r over the group)      (train_grpo.py)          ]
+       |
+    [ clipped surrogate: min(unclipped, clipped)             (grpo_loss.py)           ]
+       |
+    [ + KL penalty in the loss: kl_coef * KL(new || ref)     (grpo_loss.py)           ]
+       |
+    [ AdamW step on the policy only (no value head)          (train_grpo.py)          ]
+       |
+    [ eval: avg reward, tuned policy vs frozen ref           (eval_ppo.py)            ]   <-- THIS FILE
+
+Math
+----
+  avg_reward = (1/n) * sum_i  reward_model( format(prompt_i, policy.generate(prompt_i)) )
+
+  Higher avg_reward => the policy earns more approval from the judge than before tuning.
+  (This is also where reward hacking would show up: a high score on gibberish means the
+  KL penalty in training was too weak.)
+
+Visualization
+-------------
+See notebook section 9.7 — generate from both the tuned policy and the frozen reference,
+score both with the reward model, and compare the means (the delta is the RLHF gain).
+
+Shapes
+------
+  ids       : list[int]          encoded prompt-only tokens (clipped to block_size)
+  x         : (1, P_i)           prompt tensor fed to generate
+  y / y_old : (1, P_i + 128)     generated sequences (tuned policy / frozen reference)
+  z         : (1, T)             formatted (prompt+response) tokenized for the reward model
+  r         : float              scalar reward for one generation
+  return    : float              mean reward over the n prompts
+"""
 from __future__ import annotations
 import argparse, torch
 from pathlib import Path
