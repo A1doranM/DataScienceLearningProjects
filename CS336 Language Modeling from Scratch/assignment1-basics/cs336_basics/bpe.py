@@ -1,11 +1,27 @@
 """Byte-level BPE training (handout sections 2.4-2.5): the merge loop that turns pre-token counts into merges."""
 
+import re
 from collections import Counter
 from collections.abc import Mapping
 from itertools import pairwise
 
 type Word = tuple[bytes, ...]  # one pre-token as its current tokens: (b"l", b"o", b"w"), later (b"l", b"ow")
 type Pair = tuple[bytes, bytes]  # two adjacent tokens, e.g. (b"o", b"w")
+
+
+def split_on_special_tokens(text: str, special_tokens: list[str]) -> list[str]:
+    """Cut `text` at every special token and drop the tokens, keeping all the text between them, in order.
+
+    Each piece is pre-tokenized on its own, so no pre-token, and so no merge, ever spans a special token, and the
+    special tokens themselves never reach the counts. With no special tokens the whole text is one piece. When one
+    special token starts with another ("<|x|>" and "<|x|>!"), the longer one wins, whatever the list order. Text
+    that is only whitespace is still text and is kept. A special token at either end, or two in a row, may leave an
+    empty piece: harmless, since an empty piece holds no pre-tokens. The caller's `special_tokens` list is not changed.
+    """
+    if not special_tokens:
+        return [text]
+    text_withoout_tokens = re.split("|".join(re.escape(token) for token in special_tokens), text)
+    return text_withoout_tokens
 
 
 def merge_pair(word: Word, pair: Pair) -> Word:
