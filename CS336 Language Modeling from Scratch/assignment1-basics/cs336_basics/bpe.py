@@ -5,8 +5,13 @@ from collections import Counter
 from collections.abc import Mapping
 from itertools import pairwise
 
+import regex
+
 type Word = tuple[bytes, ...]  # one pre-token as its current tokens: (b"l", b"o", b"w"), later (b"l", b"ow")
 type Pair = tuple[bytes, bytes]  # two adjacent tokens, e.g. (b"o", b"w")
+
+# GPT-2's pre-tokenizer (handout section 2.4). Use it with the `regex` module: the built-in `re` has no \p{...}.
+PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
 
 def split_on_special_tokens(text: str, special_tokens: list[str]) -> list[str]:
@@ -20,8 +25,29 @@ def split_on_special_tokens(text: str, special_tokens: list[str]) -> list[str]:
     """
     if not special_tokens:
         return [text]
-    text_withoout_tokens = re.split("|".join(re.escape(token) for token in special_tokens), text)
-    return text_withoout_tokens
+    # A lambda rather than key=len: with key=len, ty types the sorted tokens as `Sized` instead of `str`.
+    longest_first = sorted(special_tokens, key=lambda token: len(token), reverse=True)
+    pattern = "|".join(re.escape(token) for token in longest_first)
+    return re.split(pattern, text)
+
+
+def count_pre_tokens(text: str, special_tokens: list[str]) -> dict[Word, int]:
+    """Count the pre-tokens of `text`, each split into single bytes: the `word_counts` that `learn_merges` takes.
+
+    The text is first cut at the special tokens, so no pre-token spans one. Each piece is then pre-tokenized with
+    GPT-2's regex `PAT`, and every pre-token is counted. Each distinct pre-token becomes one key: its UTF-8 bytes as
+    a tuple of single bytes, e.g. " the" -> (b" ", b"t", b"h", b"e").
+    """
+    counts: Counter[str] = Counter()
+    for piece in split_on_special_tokens(text, special_tokens):
+        for match in regex.finditer(PAT, piece):
+            pre_token = match.group()
+            counts[pre_token] += 1
+    word_counts: dict[Word, int] = {}
+    for pre_token, count in counts.items():
+        word = tuple(bytes([b]) for b in pre_token.encode("utf-8"))
+        word_counts[word] = count
+    return word_counts
 
 
 def merge_pair(word: Word, pair: Pair) -> Word:
