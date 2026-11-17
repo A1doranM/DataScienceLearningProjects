@@ -2,7 +2,7 @@
 
 import os
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 from collections.abc import Mapping
 from itertools import pairwise
 
@@ -76,18 +76,36 @@ def learn_merges(word_counts: Mapping[Word, int], num_merges: int) -> list[Pair]
     frequent pair is merged everywhere, and a tie goes to the lexicographically greater pair. Training stops
     early once every pre-token is a single token, so fewer than `num_merges` merges can come back.
     """
+    words = list(word_counts)
+    counts = list(word_counts.values())
+    # Count every pair once. `where` maps each pair to the positions of the words that contain it.
+    pair_counts: Counter[Pair] = Counter()
+    where: defaultdict[Pair, set[int]] = defaultdict(set)
+    for i, word in enumerate(words):
+        for pair in pairwise(word):
+            pair_counts[pair] += counts[i]
+            where[pair].add(i)
     merges: list[Pair] = []
     for _ in range(num_merges):
-        pair_counts: Counter[Pair] = Counter()
-        for word, count in word_counts.items():
-            for pair in pairwise(word):
-                pair_counts[pair] += count
         if not pair_counts:
             break
         _, best = max((count, pair) for pair, count in pair_counts.items())  # highest count, then greater pair
         merges.append(best)
-        # Merging only regroups a pre-token's bytes, so two different pre-tokens never become the same key.
-        word_counts = {merge_pair(word, best): count for word, count in word_counts.items()}
+        # Update only the words that contain `best`: take out their old pairs, merge, put in their new pairs.
+        # Loop over a copy, because `where[best]` shrinks inside the loop.
+        for i in list(where[best]):
+            word = words[i]
+            count = counts[i]
+            for pair in pairwise(word):
+                pair_counts[pair] -= count
+                if pair_counts[pair] == 0:
+                    del pair_counts[pair]
+                where[pair].discard(i)
+            word = merge_pair(word, best)
+            for pair in pairwise(word):
+                pair_counts[pair] += counts[i]
+                where[pair].add(i)
+            words[i] = word
     return merges
 
 
