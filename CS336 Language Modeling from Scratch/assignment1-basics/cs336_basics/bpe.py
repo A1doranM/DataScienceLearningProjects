@@ -1,5 +1,6 @@
 """Byte-level BPE training (handout sections 2.4-2.5): the merge loop that turns pre-token counts into merges."""
 
+import os
 import re
 from collections import Counter
 from collections.abc import Mapping
@@ -88,3 +89,41 @@ def learn_merges(word_counts: Mapping[Word, int], num_merges: int) -> list[Pair]
         # Merging only regroups a pre-token's bytes, so two different pre-tokens never become the same key.
         word_counts = {merge_pair(word, best): count for word, count in word_counts.items()}
     return merges
+
+
+def build_vocab(special_tokens: list[str], merges: list[Pair]) -> dict[int, bytes]:
+    """Give every token an ID: the special tokens first, then the 256 single bytes, then each merge result.
+
+    The order follows the handout's own example (section 2.4). Special tokens get 0, 1, ... in the caller's order,
+    so their IDs do not depend on the vocabulary size. Byte b gets ID len(special_tokens) + b. Each merge's new token
+    (its two halves joined) gets the next ID, in the order the merges were learned.
+    """
+    vocab: dict[int, bytes] = {}
+    for token in special_tokens:
+        vocab[len(vocab)] = token.encode("utf-8")
+    for i in range(256):
+        vocab[len(vocab)] = bytes([i])
+    for first, second in merges:
+        vocab[len(vocab)] = first + second
+    return vocab
+
+
+def train_bpe(
+    input_path: str | os.PathLike, vocab_size: int, special_tokens: list[str]
+) -> tuple[dict[int, bytes], list[Pair]]:
+    """Train a byte-level BPE tokenizer on the text file at `input_path`, and return its vocabulary and merges.
+
+    `vocab_size` is the largest vocabulary allowed: the special tokens, plus the 256 bytes, plus one entry per
+    merge. Training stops early, with fewer merges, if the text runs out of pairs. Special tokens are hard
+    boundaries that are never counted (section 2.5), and each gets an ID of its own. Raises ValueError when
+    `vocab_size` is too small to hold even the 256 bytes and the special tokens.
+    """
+    if vocab_size < 256 + len(special_tokens):
+        raise ValueError(f"vocab_size must be at least {256 + len(special_tokens)}, got {vocab_size}")
+    with open(input_path, encoding="utf-8") as f:
+        text = f.read()
+    word_counts = count_pre_tokens(text, special_tokens)
+    number_of_merges = vocab_size - len(special_tokens) - 256
+    merges = learn_merges(word_counts, number_of_merges)
+    vocab = build_vocab(special_tokens, merges)
+    return (vocab, merges)
