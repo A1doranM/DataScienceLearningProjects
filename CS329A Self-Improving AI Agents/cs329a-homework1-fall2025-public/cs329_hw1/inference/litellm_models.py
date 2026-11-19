@@ -11,6 +11,13 @@ from tenacity import (
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+# Self-study changes (not in the original homework) — each provider reads its own API key:
+# Together AI (the course's provider) or NVIDIA build (free; used to run the homework at home).
+API_KEY_ENV = {"together_ai/": "TOGETHER_API_KEY", "nvidia_nim/": "NVIDIA_NIM_API_KEY"}
+# Models on NVIDIA build think before answering by default, and those hidden reasoning tokens count toward
+# max_tokens. HW1 studies a non-thinking model (the course used Qwen3-Next-80B-A3B-Instruct), so switch it off.
+NO_THINKING = {"chat_template_kwargs": {"enable_thinking": False}}
+
 
 class LiteLLMModel:
     """
@@ -36,10 +43,11 @@ class LiteLLMModel:
             max_workers (int): The maximum number of concurrent requests to the model.
 
         Raises:
-            ValueError: If TOGETHER_API_KEY environment variable is not set.
+            ValueError: If the provider's API key environment variable is not set.
         """
-        if not os.getenv("TOGETHER_API_KEY"):
-            raise ValueError("TOGETHER_API_KEY environment variable must be set.")
+        key_env = next((env for prefix, env in API_KEY_ENV.items() if model.startswith(prefix)), None)
+        if key_env and not os.getenv(key_env):
+            raise ValueError(f"{key_env} environment variable must be set.")
 
         self.model = model
         self.system_prompt = system_prompt
@@ -64,6 +72,7 @@ class LiteLLMModel:
             messages=messages,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
+            **({"extra_body": NO_THINKING} if self.model.startswith("nvidia_nim/") else {}),
         )
         return response["choices"][0]["message"]["content"]
 
