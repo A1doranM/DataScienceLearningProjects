@@ -1,10 +1,12 @@
 """Byte-level BPE training (handout sections 2.4-2.5): the merge loop that turns pre-token counts into merges."""
 
+import multiprocessing
 import os
 import re
 from collections import Counter, defaultdict
 from collections.abc import Mapping
 from itertools import pairwise
+from typing import BinaryIO
 
 import regex
 
@@ -49,6 +51,87 @@ def count_pre_tokens(text: str, special_tokens: list[str]) -> dict[Word, int]:
         word = tuple(bytes([b]) for b in pre_token.encode("utf-8"))
         word_counts[word] = count
     return word_counts
+
+
+# From the course's cs336_basics/pretokenization_example.py, unchanged. That file can't be imported: the usage
+# example at its bottom runs on import.
+def find_chunk_boundaries(
+    file: BinaryIO,
+    desired_num_chunks: int,
+    split_special_token: bytes,
+) -> list[int]:
+    """
+    Chunk the file into parts that can be counted independently.
+    May return fewer chunks if the boundaries end up overlapping.
+    """
+    assert isinstance(split_special_token, bytes), "Must represent special token as a bytestring"
+
+    # Get total file size in bytes
+    file.seek(0, os.SEEK_END)
+    file_size = file.tell()
+    file.seek(0)
+
+    chunk_size = file_size // desired_num_chunks
+
+    # Initial guesses for chunk boundary locations, uniformly spaced
+    # Chunks start on previous index, don't include last index
+    chunk_boundaries = [i * chunk_size for i in range(desired_num_chunks + 1)]
+    chunk_boundaries[-1] = file_size
+
+    mini_chunk_size = 4096  # Read ahead by 4k bytes at a time
+
+    for bi in range(1, len(chunk_boundaries) - 1):
+        initial_position = chunk_boundaries[bi]
+        file.seek(initial_position)  # Start at boundary guess
+        while True:
+            mini_chunk = file.read(mini_chunk_size)  # Read a mini chunk
+
+            # If EOF, this boundary should be at the end of the file
+            if mini_chunk == b"":
+                chunk_boundaries[bi] = file_size
+                break
+
+            # Find the special token in the mini chunk
+            found_at = mini_chunk.find(split_special_token)
+            if found_at != -1:
+                chunk_boundaries[bi] = initial_position + found_at
+                break
+            initial_position += mini_chunk_size
+
+    # Make sure all boundaries are unique, but might be fewer than desired_num_chunks
+    return sorted(set(chunk_boundaries))
+
+
+def _count_chunk(job: tuple[str | os.PathLike, int, int, list[str]]) -> dict[Word, int]:
+    """Count the pre-tokens in bytes start..end of the file. Runs inside one worker process."""
+    input_path, start, end, special_tokens = job
+    with open(input_path, "rb") as f:  # bytes, because start and end are byte positions
+        f.seek(start)
+        data = f.read(end - start)
+    chunk = data.decode("utf-8")
+    return count_pre_tokens(chunk, special_tokens)
+
+
+def count_pre_tokens_in_file(input_path: str | os.PathLike, special_tokens: list[str]) -> dict[Word, int]:
+    """Count the pre-tokens of the file at `input_path`: the same counts as count_pre_tokens on its whole text.
+
+    The file is cut just before a special token (the first one in the list), so no pre-token spans two chunks,
+    and the chunks are counted in parallel worker processes. Without special tokens, the file is one chunk.
+    """
+    num_processes = os.cpu_count() or 1
+    if special_tokens:
+        # More chunks than workers: each chunk stays small, and every worker stays busy until the end.
+        with open(input_path, "rb") as f:
+            boundaries = find_chunk_boundaries(f, 4 * num_processes, special_tokens[0].encode("utf-8"))
+    else:
+        boundaries = [0, os.path.getsize(input_path)]
+    jobs = [(input_path, start, end, special_tokens) for start, end in pairwise(boundaries)]
+    with multiprocessing.Pool(num_processes) as pool:
+        results = pool.map(_count_chunk, jobs)
+    total: Counter[Word] = Counter()
+    for word_counts in results:
+        total.update(word_counts)
+    return dict(total)
 
 
 def merge_pair(word: Word, pair: Pair) -> Word:
