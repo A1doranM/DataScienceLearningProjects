@@ -1,10 +1,12 @@
 """Byte-level BPE training (handout sections 2.4-2.5): the merge loop that turns pre-token counts into merges."""
 
+import json
 import multiprocessing
 import os
 import re
 from collections import Counter, defaultdict
 from collections.abc import Mapping
+from functools import lru_cache
 from itertools import pairwise
 from typing import BinaryIO
 
@@ -117,6 +119,10 @@ def count_pre_tokens_in_file(input_path: str | os.PathLike, special_tokens: list
 
     The file is cut just before a special token (the first one in the list), so no pre-token spans two chunks,
     and the chunks are counted in parallel worker processes. Without special tokens, the file is one chunk.
+
+    The workers start from a clean "forkserver" process, not as copies ("fork") of the caller: a copy of a process
+    that already runs other threads can deadlock. As with any start method but fork, a script that calls this must
+    keep its top-level code under `if __name__ == "__main__":`.
     """
     num_processes = os.cpu_count() or 1
     if special_tokens:
@@ -126,8 +132,13 @@ def count_pre_tokens_in_file(input_path: str | os.PathLike, special_tokens: list
     else:
         boundaries = [0, os.path.getsize(input_path)]
     jobs = [(input_path, start, end, special_tokens) for start, end in pairwise(boundaries)]
-    with multiprocessing.Pool(num_processes) as pool:
-        results = pool.map(_count_chunk, jobs)
+    if len(jobs) <= 1:
+        # Nothing to split (e.g. no special token in the file): starting worker processes would cost more (about
+        # 0.2 s) than counting the one chunk right here.
+        results = [_count_chunk(job) for job in jobs]
+    else:
+        with multiprocessing.get_context("forkserver").Pool(min(num_processes, len(jobs))) as pool:
+            results = pool.map(_count_chunk, jobs)
     total: Counter[Word] = Counter()
     for word_counts in results:
         total.update(word_counts)
@@ -218,13 +229,93 @@ def train_bpe(
     merge. Training stops early, with fewer merges, if the text runs out of pairs. Special tokens are hard
     boundaries that are never counted (section 2.5), and each gets an ID of its own. Raises ValueError when
     `vocab_size` is too small to hold even the 256 bytes and the special tokens.
+
+    The file is pre-tokenized in parallel worker processes (`count_pre_tokens_in_file`), so a script that calls
+    this must keep its top-level code under `if __name__ == "__main__":`.
     """
     if vocab_size < 256 + len(special_tokens):
         raise ValueError(f"vocab_size must be at least {256 + len(special_tokens)}, got {vocab_size}")
-    with open(input_path, encoding="utf-8") as f:
-        text = f.read()
-    word_counts = count_pre_tokens(text, special_tokens)
+    word_counts = count_pre_tokens_in_file(input_path, special_tokens)
     number_of_merges = vocab_size - len(special_tokens) - 256
     merges = learn_merges(word_counts, number_of_merges)
     vocab = build_vocab(special_tokens, merges)
     return (vocab, merges)
+
+
+# From the course's tests/common.py, unchanged (the package can't import from tests/).
+@lru_cache
+def gpt2_bytes_to_unicode() -> dict[int, str]:
+    """
+    Returns a mapping between every possible byte (an integer from 0 to 255) to a
+    printable unicode string character representation. This function is taken
+    from the GPT-2 code.
+
+    For example, `chr(0)` is `\x00`, which is an unprintable character:
+
+    >>> chr(0)
+    '\x00'
+    >>> print(chr(0))
+
+    As a result, this function returns a dictionary `d` where `d[0]` returns `Ā`.
+    The bytes that are visually printable keep their original string representation [1].
+    For example, `chr(33)` returns `!`, and so accordingly `d[33]` returns `!`.
+    Note in particular that the space character `chr(32)` becomes `d[32]`, which
+    returns 'Ġ'.
+
+    For unprintable characters, the function shifts takes the integer representing
+    the Unicode code point of that character (returned by the Python `ord`) function
+    and shifts it by 256. For example, `ord(" ")` returns `32`, so the the space character
+    ' ' is shifted to `256 + 32`. Since `chr(256 + 32)` returns `Ġ`, we use that as the
+    string representation of the space.
+
+    This function can simplify the BPE implementation and makes it slightly easier to
+    manually inspect the generated merges after they're serialized to a file.
+    """
+    # These 188 integers can used as-is, since they are not whitespace or control characters.
+    # See https://www.ssec.wisc.edu/~tomw/java/unicode.html.
+    bs = list(range(ord("!"), ord("~") + 1)) + list(range(ord("¡"), ord("¬") + 1)) + list(range(ord("®"), ord("ÿ") + 1))
+    cs = bs[:]
+    # now get the representations of the other 68 integers that do need shifting
+    # each will get mapped chr(256 + n), where n will grow from 0...67 in the loop
+    # Get printable representations of the remaining integers 68 integers.
+    n = 0
+    for b in range(2**8):
+        if b not in bs:
+            # If this integer isn't in our list of visually-representable
+            # charcters, then map it to the next nice character (offset by 256)
+            bs.append(b)
+            cs.append(2**8 + n)
+            n += 1
+    characters = [chr(n) for n in cs]
+    d = dict(zip(bs, characters))
+    return d
+
+
+def _to_text(token: bytes) -> str:
+    """One token as GPT-2 text: every byte becomes one visible character, e.g. b" the" -> "Ġthe"."""
+    byte_encoder = gpt2_bytes_to_unicode()
+    text = ""
+    for b in token:
+        text = text + byte_encoder[b]
+    return text
+
+
+def save_vocab_and_merges(
+    vocab: dict[int, bytes], merges: list[Pair], vocab_path: str | os.PathLike, merges_path: str | os.PathLike
+) -> None:
+    """Write the vocabulary and merges in GPT-2's format, the format of the course's reference files.
+
+    `vocab_path` gets one JSON object {token: id}; `merges_path` gets one merge per line, its two halves separated by
+    a space. Tokens are written with `_to_text`, so every byte is one visible character (a space becomes "Ġ"), and
+    the one real space on a merges line is always the separator.
+    """
+    vocab_json: dict[str, int] = {}
+    for token_id, token in vocab.items():
+        vocab_json[_to_text(token)] = token_id
+    with open(vocab_path, "w", encoding="utf-8") as f:
+        json.dump(vocab_json, f, ensure_ascii=False)
+    with open(merges_path, "w", encoding="utf-8") as f:
+        for first, second in merges:
+            first_text = _to_text(first)
+            second_text = _to_text(second)
+            f.write(first_text + " " + second_text + "\n")
