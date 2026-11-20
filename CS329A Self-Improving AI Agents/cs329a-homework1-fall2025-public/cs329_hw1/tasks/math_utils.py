@@ -10,7 +10,8 @@ This logic is largely copied from the Hendrycks' MATH release (math_equivalence)
 
 import re
 import regex
-import multiprocessing
+import queue
+import threading
 from math import isclose
 from typing import Union
 
@@ -338,19 +339,41 @@ def symbolic_equal_process(a, b, output_queue):
     output_queue.put(result)
 
 
+def run_with_timeout(func, *args, timeout, **kwargs):
+    """Return func(*args, **kwargs), or raise TimeoutError after `timeout` seconds.
+
+    Self-study change (not in the original homework): func runs in a daemon thread, which works on every OS and
+    from any thread. The original timeouts used SIGALRM (Unix only, main thread only) or a new process per call
+    (on Windows the process start-up alone takes about 2 s). A call that times out keeps running in the
+    background, because Python cannot stop a thread, but the caller gets its answer on time.
+    """
+    result = {}
+
+    def target():
+        try:
+            result["value"] = func(*args, **kwargs)
+        except BaseException as e:  # hand any error back to the caller's thread
+            result["error"] = e
+
+    thread = threading.Thread(target=target, daemon=True)
+    thread.start()
+    thread.join(timeout)
+    if thread.is_alive():
+        raise TimeoutError(f"{func.__name__} took longer than {timeout} s")
+    if "error" in result:
+        raise result["error"]
+    return result["value"]
+
+
 def call_with_timeout(func, *args, timeout=1, **kwargs):
-    output_queue = multiprocessing.Queue()
-    process_args = args + (output_queue,)
-    process = multiprocessing.Process(target=func, args=process_args, kwargs=kwargs)
-    process.start()
-    process.join(timeout)
-
-    if process.is_alive():
-        process.terminate()
-        process.join()
+    # Same contract as before (func puts its result in the queue; False if it runs out of time),
+    # but a thread instead of a process, see run_with_timeout.
+    output_queue = queue.Queue()
+    try:
+        run_with_timeout(func, *args, output_queue, timeout=timeout, **kwargs)
+    except TimeoutError:
         return False
-
-    return output_queue.get()
+    return output_queue.get_nowait()
 
 
 def _fix_fracs(string):
@@ -625,7 +648,7 @@ def strip_string(string, skip_unit=False):
 
     # remove percentage
     string = string.replace("\\%", "")
-    string = string.replace("\%", "")
+    string = string.replace(r"\%", "")
     string = string.replace("%", "")
 
     # " 0." equivalent to " ." and "{0." equivalent to "{." Alternatively, add "0" if "." is the start of the string
@@ -881,7 +904,7 @@ def extract_answer(pred_str, data_name, use_last_number=True):
         pred = pred_str.split("答案是")[1].strip().split("\n\n")[0].strip()
     else:  # use the last number
         if use_last_number:
-            pattern = "-?\d*\.?\d+"
+            pattern = r"-?\d*\.?\d+"
             pred = re.findall(pattern, pred_str.replace(",", ""))
             if len(pred) >= 1:
                 pred = pred[-1]
@@ -1028,7 +1051,7 @@ def parse_question(example, data_name):
         options = "(" + options
         for ch in "BCD":
             if f" {ch}) " in options:
-                options = regex.sub(f" {ch}\) ", f" ({ch}) ", options)
+                options = regex.sub(rf" {ch}\) ", f" ({ch}) ", options)
         # question = f"{example['question'].strip()}\nWhat of the following is the right choice? Explain your answer.\n{options.strip()}"
         question = f"{example['question'].strip()}\nAnswer Choices: {options}"
     elif "aqua" in data_name:

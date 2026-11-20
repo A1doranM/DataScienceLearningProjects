@@ -2,8 +2,8 @@ from cs329_hw1.tasks.math_utils import (
     strip_string,
     extract_answer,
     math_equal,
+    run_with_timeout,
 )
-import timeout_decorator
 
 
 class AIME25Verifier:
@@ -38,12 +38,11 @@ class AIME25Verifier:
         extracted_gt_answer = ground_truth
         # print("extracted_answer: ", extracted_answer)
 
-        # Use timeout for mathematical equality check
-        time_out_math_equal = timeout_decorator.timeout(2)(math_equal)
-
+        # Use timeout for mathematical equality check. Self-study change: a thread (run_with_timeout) instead of
+        # timeout_decorator's SIGALRM, which Windows lacks; there every answer silently scored 0.
         try:
-            return int(time_out_math_equal(extracted_answer, extracted_gt_answer))
-        except timeout_decorator.TimeoutError:
+            return int(run_with_timeout(math_equal, extracted_answer, extracted_gt_answer, timeout=2))
+        except TimeoutError:
             return 0
         except Exception as e:
             return 0

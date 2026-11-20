@@ -9,7 +9,7 @@ from tenacity import (
     wait_random_exponential,
 )
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 
 # Self-study changes (not in the original homework) — each provider reads its own API key:
 # Together AI (the course's provider) or NVIDIA build (free; used to run the homework at home).
@@ -104,7 +104,8 @@ class LiteLLMModel:
         Uses a thread pool to limit concurrent requests.
         """
         responses = [None] * len(prompts)
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+        executor = ThreadPoolExecutor(max_workers=self.max_workers)
+        try:
             futures = []
             for i, prompt in enumerate(prompts):
                 # Add small delay between request submissions to avoid rate limits
@@ -115,8 +116,16 @@ class LiteLLMModel:
 
             with tqdm(total=len(prompts), desc="Processing requests") as progress_bar:
                 for i, future in futures:
+                    # Self-study change: wait in 0.5 s slices. On Windows a plain future.result() holds back
+                    # "Interrupt Kernel" until every queued request has finished.
+                    while not wait([future], timeout=0.5).done:
+                        pass
                     responses[i] = future.result()
                     progress_bar.update(1)
+        finally:
+            # On an interrupt, cancel the requests still queued instead of running them all first
+            # (requests already in flight finish in the background; their answers are dropped).
+            executor.shutdown(wait=False, cancel_futures=True)
 
         return responses
 

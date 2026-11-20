@@ -29,6 +29,6 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
     ],
-    python_requires=">=3.10",
+    python_requires=">=3.10,<3.13",  # latex2sympy2 pins antlr4 4.7.2, which needs typing.io (removed in 3.13)
     install_requires=requirements,
 )
