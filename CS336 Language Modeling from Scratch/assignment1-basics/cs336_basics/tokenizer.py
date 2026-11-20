@@ -1,8 +1,13 @@
 """Byte-level BPE tokenizer (handout section 2.6): turns text into token IDs, and token IDs back into text."""
 
 import re
+from itertools import pairwise
 
-from cs336_basics.bpe import Pair
+import regex
+
+from cs336_basics.bpe import PAT, Pair, Word, merge_pair
+
+NEVER = float("inf")  # the rank of a pair that training never learned: higher than every real rank
 
 
 class Tokenizer:
@@ -33,3 +38,65 @@ class Tokenizer:
             for token in longest_first:
                 escaped.append(re.escape(token))  # "|" means "or" in a pattern; re.escape makes it a plain "|"
             self.special_pattern = "(" + "|".join(escaped) + ")"
+
+    def decode(self, ids: list[int]) -> str:
+        """Turn token IDs back into text. Bytes that aren't valid UTF-8 (e.g. half a character) become U+FFFD."""
+        parts: list[bytes] = []
+        for token_id in ids:
+            parts.append(self.vocab[token_id])
+        # Glue all the bytes first, then decode: a character can be split across tokens ("é" = b"\xc3" + b"\xa9").
+        all_bytes = b"".join(parts)
+        return all_bytes.decode("utf-8", errors="replace")
+
+    def _encode_pre_token(self, pre_token: str) -> list[int]:
+        """Encode one pre-token: split it into single bytes, then merge pairs in the order training learned them."""
+        word: Word = tuple(bytes([b]) for b in pre_token.encode("utf-8"))  # "the" -> (b"t", b"h", b"e")
+        while True:
+            # Find the pair in word that training learned first: the one with the lowest rank.
+            best_pair: Pair | None = None
+            best_rank = NEVER
+            for pair in pairwise(word):
+                rank = self.ranks.get(pair, NEVER)
+                if rank < best_rank:
+                    best_pair = pair
+                    best_rank = rank
+            if best_pair is None:  # no pair in word was ever learned: nothing left to merge
+                break
+            word = merge_pair(word, best_pair)
+        ids: list[int] = []
+        for token in word:  # "the" ends as (b"the",)
+            ids.append(self.ids[token])
+        return ids
+
+    def _pieces(self, text: str) -> list[str]:
+        """Cut text into encode's pieces: special tokens kept whole, the rest cut into pre-tokens by PAT."""
+        # "the cat sat.<|endoftext|>the hat sat." -> ['the', ' cat', ' sat', '.', '<|endoftext|>', 'the', ...]
+        if self.special_pattern is None:  # no special tokens: the whole text is one part
+            parts = [text]
+        else:
+            parts = re.split(self.special_pattern, text)  # the ( ) in the pattern keep the special tokens
+        pieces: list[str] = []
+        for part in parts:  # 'the cat sat.', then '<|endoftext|>', then 'the hat sat.'
+            if part in self.special_tokens:
+                pieces.append(part)
+            else:
+                for match in regex.finditer(PAT, part):  # in 'the cat sat.': 'the', ' cat', ' sat', '.'
+                    pieces.append(match.group())
+        return pieces
+
+    def _encode_pieces(self, pieces: list[str]) -> list[int]:
+        """Turn pieces into IDs: a special token becomes its one ID, any other piece goes through the merges."""
+        # STEP IN PROGRESS: fill the blanks ①-⑤ here and ⑥ in tests/adapters.py. Placeholders, not working code yet.
+        ids: list[int] = []
+        for piece in pieces:  # 'the', ' cat', ' sat', '.', '<|endoftext|>', 'the', ...
+            if piece in self.special_tokens:
+                piece_bytes = ________  # ① the special token as bytes: '<|endoftext|>' -> b'<|endoftext|>'
+                ids.append(________)  # ② its one ID, from self.ids: b'<|endoftext|>' -> 0
+            else:
+                ________  # ③ add ALL the IDs that self._encode_pre_token(piece) returns: ' cat' -> 33, 100, 257
+        return ids
+
+    def encode(self, text: str) -> list[int]:
+        """Encode text into token IDs (handout section 2.6.1)."""
+        pieces = ________  # ④ cut text into pieces with self._pieces
+        return ________  # ⑤ the IDs of those pieces, from self._encode_pieces
