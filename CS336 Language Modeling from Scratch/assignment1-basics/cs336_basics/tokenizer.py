@@ -1,11 +1,14 @@
 """Byte-level BPE tokenizer (handout section 2.6): turns text into token IDs, and token IDs back into text."""
 
+import os
 import re
+from collections.abc import Iterable, Iterator
 from itertools import pairwise
+from typing import Self
 
 import regex
 
-from cs336_basics.bpe import PAT, Pair, Word, merge_pair
+from cs336_basics.bpe import PAT, Pair, Word, load_vocab_and_merges, merge_pair
 
 NEVER = float("inf")  # the rank of a pair that training never learned: higher than every real rank
 
@@ -86,17 +89,46 @@ class Tokenizer:
 
     def _encode_pieces(self, pieces: list[str]) -> list[int]:
         """Turn pieces into IDs: a special token becomes its one ID, any other piece goes through the merges."""
-        # STEP IN PROGRESS: fill the blanks ①-⑤ here and ⑥ in tests/adapters.py. Placeholders, not working code yet.
         ids: list[int] = []
         for piece in pieces:  # 'the', ' cat', ' sat', '.', '<|endoftext|>', 'the', ...
             if piece in self.special_tokens:
-                piece_bytes = ________  # ① the special token as bytes: '<|endoftext|>' -> b'<|endoftext|>'
-                ids.append(________)  # ② its one ID, from self.ids: b'<|endoftext|>' -> 0
+                piece_bytes = piece.encode("utf-8")  # self.ids has bytes keys
+                ids.append(self.ids[piece_bytes])
             else:
-                ________  # ③ add ALL the IDs that self._encode_pre_token(piece) returns: ' cat' -> 33, 100, 257
+                ids.extend(self._encode_pre_token(piece))  # extend, not append: ' cat' adds 33, 100, 257
         return ids
 
     def encode(self, text: str) -> list[int]:
         """Encode text into token IDs (handout section 2.6.1)."""
-        pieces = ________  # ④ cut text into pieces with self._pieces
-        return ________  # ⑤ the IDs of those pieces, from self._encode_pieces
+        pieces = self._pieces(text)
+        return self._encode_pieces(pieces)
+
+    def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
+        """Encode a stream of text (e.g. a file, line by line) lazily, handing out one ID at a time.
+
+        The last piece of each chunk is held back and put in front of the next chunk, because it may continue there
+        (a word cut in two). So the IDs are the same as encode() of the whole text, but memory stays small. One chunk
+        must not cut a special token in two; the lines of a file never do.
+        """
+        # chunks ["the ca", "t sat."] -> 259 | 33, 100, 257, 33, 116, 257 | 47  (= encode("the cat sat."))
+        buffer = ""  # the held-back piece; empty at the start
+        for chunk in iterable:  # "the ca", then "t sat."
+            pieces = self._pieces(buffer + chunk)  # the held-back piece goes first: " ca" + "t sat."
+            if pieces:
+                buffer = pieces.pop()  # hold back the last piece: it may continue in the next chunk
+            for token_id in self._encode_pieces(pieces):  # the IDs of the other pieces: ['the'] -> 259
+                yield token_id
+        last_pieces = self._pieces(buffer)  # the stream ended: what is left in buffer is complete now
+        for token_id in self._encode_pieces(last_pieces):
+            yield token_id
+
+    @classmethod
+    def from_files(
+        cls,
+        vocab_filepath: str | os.PathLike,
+        merges_filepath: str | os.PathLike,
+        special_tokens: list[str] | None = None,
+    ) -> Self:
+        """Build a Tokenizer from the files `save_vocab_and_merges` wrote, e.g. our TinyStories vocab and merges."""
+        vocab, merges = load_vocab_and_merges(vocab_filepath, merges_filepath)  # the two files -> vocab, merges
+        return cls(vocab, merges, special_tokens)  # cls is the class it was called on, so this runs __init__

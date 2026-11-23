@@ -319,3 +319,35 @@ def save_vocab_and_merges(
             first_text = _to_text(first)
             second_text = _to_text(second)
             f.write(first_text + " " + second_text + "\n")
+
+
+def _to_bytes(text: str) -> bytes:
+    """One token's GPT-2 text back to its bytes, e.g. "Ġthe" -> b" the". The reverse of `_to_text`."""
+    byte_decoder: dict[str, int] = {}  # char -> byte: gpt2_bytes_to_unicode() reversed, e.g. "Ġ" -> 32
+    for b, char in gpt2_bytes_to_unicode().items():  # (32, "Ġ"), (97, "a"), ...
+        byte_decoder[char] = b  # "Ġ" -> 32
+    values: list[int] = []
+    for char in text:  # "Ġt": "Ġ", then "t"
+        values.append(byte_decoder[char])  # "Ġ" -> 32, "t" -> 116
+    return bytes(values)  # [32, 116] -> b" t"
+
+
+def load_vocab_and_merges(
+    vocab_path: str | os.PathLike, merges_path: str | os.PathLike
+) -> tuple[dict[int, bytes], list[Pair]]:
+    """Read back the files `save_vocab_and_merges` wrote (GPT-2's format): the reverse of saving."""
+    with open(vocab_path, encoding="utf-8") as f:
+        vocab_json: dict[str, int] = json.load(f)  # {"<|endoftext|>": 0, "Ā": 1, ..., "Ġt": 257, ...}
+    vocab: dict[int, bytes] = {}
+    for text, token_id in vocab_json.items():  # ("Ġt", 257)
+        vocab[token_id] = _to_bytes(text)  # vocab[257] = b" t"
+    merges: list[Pair] = []
+    with open(merges_path, encoding="utf-8") as f:
+        for line in f:  # "Ġ t\n", then "h e\n", ...
+            if line.startswith("#version"):  # GPT-2's own merges.txt starts with this header line; ours doesn't
+                continue
+            first_text, second_text = line.rstrip("\n").split(" ")  # "Ġ t\n" -> "Ġ", "t"
+            first = _to_bytes(first_text)  # "Ġ" -> b" "
+            second = _to_bytes(second_text)  # "t" -> b"t"
+            merges.append((first, second))  # (b" ", b"t")
+    return vocab, merges
