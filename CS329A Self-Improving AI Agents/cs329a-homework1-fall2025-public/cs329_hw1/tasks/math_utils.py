@@ -10,8 +10,10 @@ This logic is largely copied from the Hendrycks' MATH release (math_equivalence)
 
 import re
 import regex
-import queue
+import itertools
+import multiprocessing
 import threading
+import time
 from math import isclose
 from typing import Union
 
@@ -255,8 +257,11 @@ def math_equal(
 
     # symbolic equal with sympy
     if timeout:
-        if call_with_timeout(symbolic_equal_process, prediction, reference):
-            return True
+        try:  # self-study change: in the worker process (see run_with_timeout); timeout or failure = not equal
+            if run_with_timeout(symbolic_equal, prediction, reference, timeout=1):
+                return True
+        except Exception:
+            pass
     else:
         if symbolic_equal(prediction, reference):
             return True
@@ -334,46 +339,77 @@ def symbolic_equal(a, b):
     return False
 
 
-def symbolic_equal_process(a, b, output_queue):
-    result = symbolic_equal(a, b)
-    output_queue.put(result)
+# Self-study change (not in the original homework): time limits run the check in ONE separate worker process,
+# which is killed and replaced when a check runs out of time. The original used SIGALRM, which Windows lacks
+# (every answer silently scored 0), or a new process per call (start-up alone takes ~2 s on Windows). A thread
+# can't stop one huge calculation, e.g. an answer like 25^{2^{2024}}, so it would hang the notebook kernel.
+_WORKER_START_LIMIT = 60  # seconds for a fresh worker to import sympy and latex2sympy2 (about 2-7 s on Windows)
+_worker = None  # (process, connection) of the running worker, or None
+_worker_lock = threading.Lock()
+_request_ids = itertools.count()
 
 
-def run_with_timeout(func, *args, timeout, **kwargs):
-    """Return func(*args, **kwargs), or raise TimeoutError after `timeout` seconds.
-
-    Self-study change (not in the original homework): func runs in a daemon thread, which works on every OS and
-    from any thread. The original timeouts used SIGALRM (Unix only, main thread only) or a new process per call
-    (on Windows the process start-up alone takes about 2 s). A call that times out keeps running in the
-    background, because Python cannot stop a thread, but the caller gets its answer on time.
-    """
-    result = {}
-
-    def target():
+def _serve(conn):
+    """Worker process loop: receive (request_id, function name, args), reply (request_id, result, error)."""
+    while True:
         try:
-            result["value"] = func(*args, **kwargs)
-        except BaseException as e:  # hand any error back to the caller's thread
-            result["error"] = e
+            request_id, name, args = conn.recv()
+        except (EOFError, OSError):  # the notebook kernel is gone
+            return
+        try:
+            reply = (request_id, globals()[name](*args), None)
+        except Exception as e:
+            reply = (request_id, None, repr(e))
+        try:
+            conn.send(reply)
+        except (EOFError, OSError):
+            return
 
-    thread = threading.Thread(target=target, daemon=True)
-    thread.start()
-    thread.join(timeout)
-    if thread.is_alive():
-        raise TimeoutError(f"{func.__name__} took longer than {timeout} s")
-    if "error" in result:
-        raise result["error"]
-    return result["value"]
+
+def _ask_worker(name, args, timeout):
+    """Send one request to the worker; return (result, error), or raise TimeoutError after `timeout` seconds."""
+    conn = _worker[1]
+    request_id = next(_request_ids)
+    conn.send((request_id, name, args))
+    deadline = time.monotonic() + timeout
+    while True:
+        left = deadline - time.monotonic()
+        if left <= 0:
+            raise TimeoutError(f"{name} took longer than {timeout} s")
+        if conn.poll(min(left, 0.5)):  # short waits keep "Interrupt Kernel" responsive
+            reply_id, result, error = conn.recv()
+            if reply_id == request_id:  # a reply to an older request can't be mistaken for this one
+                return result, error
 
 
-def call_with_timeout(func, *args, timeout=1, **kwargs):
-    # Same contract as before (func puts its result in the queue; False if it runs out of time),
-    # but a thread instead of a process, see run_with_timeout.
-    output_queue = queue.Queue()
-    try:
-        run_with_timeout(func, *args, output_queue, timeout=timeout, **kwargs)
-    except TimeoutError:
-        return False
-    return output_queue.get_nowait()
+def run_with_timeout(func, *args, timeout):
+    """Return func(*args) computed in the worker process, or raise TimeoutError after `timeout` seconds.
+
+    func must be a function of this module: the worker looks it up by name. After a timeout, an interrupt or a
+    broken pipe the worker is killed, and the next call starts a fresh one (about 2 s).
+    """
+    global _worker
+    with _worker_lock:
+        try:
+            if _worker is None or not _worker[0].is_alive():
+                ctx = multiprocessing.get_context("spawn")
+                conn, child_conn = ctx.Pipe()
+                process = ctx.Process(target=_serve, args=(child_conn,), daemon=True)
+                process.start()
+                child_conn.close()
+                _worker = (process, conn)
+                _ask_worker("math_equal", ("1", "1"), _WORKER_START_LIMIT)  # wait until its imports are done
+            result, error = _ask_worker(func.__name__, args, timeout)
+        except BaseException:  # never reuse a worker whose state is unknown
+            if _worker is not None:
+                _worker[0].kill()
+                _worker[0].join()
+                _worker[1].close()
+                _worker = None
+            raise
+    if error is not None:
+        raise RuntimeError(f"{func.__name__} failed in the worker: {error}")
+    return result
 
 
 def _fix_fracs(string):

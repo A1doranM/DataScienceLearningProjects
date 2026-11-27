@@ -38,8 +38,8 @@ class AIME25Verifier:
         extracted_gt_answer = ground_truth
         # print("extracted_answer: ", extracted_answer)
 
-        # Use timeout for mathematical equality check. Self-study change: a thread (run_with_timeout) instead of
-        # timeout_decorator's SIGALRM, which Windows lacks; there every answer silently scored 0.
+        # Use timeout for mathematical equality check. Self-study change: a worker process (run_with_timeout)
+        # instead of timeout_decorator's SIGALRM, which Windows lacks; there every answer silently scored 0.
         try:
             return int(run_with_timeout(math_equal, extracted_answer, extracted_gt_answer, timeout=2))
         except TimeoutError:

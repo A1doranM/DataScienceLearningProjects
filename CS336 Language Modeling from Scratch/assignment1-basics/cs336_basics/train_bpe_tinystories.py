@@ -46,22 +46,26 @@ class PeakMemory:
         return self.peak
 
 
-def main() -> None:
+def train_and_save(data: Path, vocab_size: int, name: str) -> None:
+    """Train on `data`, save `<name>_vocab.json` and `<name>_merges.txt` in OUT, and print time, memory and the
+    longest tokens. Also used by `train_bpe_owt` (problem train_bpe_expts_owt)."""
     memory = PeakMemory()
     start = time.perf_counter()
-    vocab, merges = train_bpe(DATA, 10_000, ["<|endoftext|>"])
+    vocab, merges = train_bpe(data, vocab_size, ["<|endoftext|>"])
     seconds = time.perf_counter() - start
     peak = memory.stop()
     OUT.mkdir(parents=True, exist_ok=True)
-    save_vocab_and_merges(vocab, merges, OUT / "tinystories_vocab.json", OUT / "tinystories_merges.txt")
-    longest = b""
-    for first, second in merges:
-        token = first + second
-        if len(longest) < len(token):
-            longest = token
+    save_vocab_and_merges(vocab, merges, OUT / f"{name}_vocab.json", OUT / f"{name}_merges.txt")
+    learned = [first + second for first, second in merges]
+    longest_length = max(len(token) for token in learned)
+    longest = [token for token in learned if len(token) == longest_length]  # several can tie
     print(f"trained in {seconds:.1f} s, peak memory {peak / 1e9:.2f} GB")
     print(f"{len(vocab):,} tokens, {len(merges):,} merges, saved to {OUT}")
-    print(f"longest token: {longest!r} ({len(longest)} bytes)")
+    print(f"longest tokens ({longest_length} bytes): {longest}")
+
+
+def main() -> None:
+    train_and_save(DATA, 10_000, "tinystories")
 
 
 if __name__ == "__main__":

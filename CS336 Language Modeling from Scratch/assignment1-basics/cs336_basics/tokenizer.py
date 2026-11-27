@@ -11,6 +11,7 @@ import regex
 from cs336_basics.bpe import PAT, Pair, Word, load_vocab_and_merges, merge_pair
 
 NEVER = float("inf")  # the rank of a pair that training never learned: higher than every real rank
+CACHE_LIMIT = 1_000_000  # pieces encode remembers; past this, new pieces are still encoded, just not remembered
 
 
 class Tokenizer:
@@ -24,6 +25,9 @@ class Tokenizer:
         self.ranks: dict[Pair, int] = {}  # pair -> its place in merges, i.e. when train_bpe learned it
         for rank, pair in enumerate(merges):
             self.ranks[pair] = rank
+        # piece -> its IDs. Text repeats itself (TinyStories: 536,592,168 pieces, only 59,933 different), so each
+        # different piece goes through the merges once, and every later time is one dict lookup.
+        self._cache: dict[str, list[int]] = {}
         self.special_tokens = list(special_tokens or [])  # None becomes []; our own copy of the list
         for special in self.special_tokens:
             special_bytes = special.encode("utf-8")
@@ -52,7 +56,14 @@ class Tokenizer:
         return all_bytes.decode("utf-8", errors="replace")
 
     def _encode_pre_token(self, pre_token: str) -> list[int]:
-        """Encode one pre-token: split it into single bytes, then merge pairs in the order training learned them."""
+        """Encode one pre-token: split it into single bytes, then merge pairs in the order training learned them.
+
+        The result is remembered in self._cache, and the same list is returned next time: callers must not change it.
+        """
+        try:
+            return self._cache[pre_token]  # most pieces were seen before: one lookup
+        except KeyError:
+            pass
         word: Word = tuple(bytes([b]) for b in pre_token.encode("utf-8"))  # "the" -> (b"t", b"h", b"e")
         while True:
             # Find the pair in word that training learned first: the one with the lowest rank.
@@ -69,6 +80,8 @@ class Tokenizer:
         ids: list[int] = []
         for token in word:  # "the" ends as (b"the",)
             ids.append(self.ids[token])
+        if len(self._cache) < CACHE_LIMIT:
+            self._cache[pre_token] = ids
         return ids
 
     def _pieces(self, text: str) -> list[str]:

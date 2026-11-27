@@ -18,6 +18,8 @@ type Pair = tuple[bytes, bytes]  # two adjacent tokens, e.g. (b"o", b"w")
 # GPT-2's pre-tokenizer (handout section 2.4). Use it with the `regex` module: the built-in `re` has no \p{...}.
 PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
+CHUNK_BYTES = 32 * 1024 * 1024  # the most a worker reads at once when a big file is split for counting
+
 
 def split_on_special_tokens(text: str, special_tokens: list[str]) -> list[str]:
     """Cut `text` at every special token and drop the tokens, keeping all the text between them, in order.
@@ -119,29 +121,34 @@ def count_pre_tokens_in_file(input_path: str | os.PathLike, special_tokens: list
 
     The file is cut just before a special token (the first one in the list), so no pre-token spans two chunks,
     and the chunks are counted in parallel worker processes. Without special tokens, the file is one chunk.
+    Memory stays flat on big files: a chunk is at most about CHUNK_BYTES, and each chunk's counts are added to the
+    total as soon as they arrive, instead of all of them being held until the last chunk is done.
 
     The workers start from a clean "forkserver" process, not as copies ("fork") of the caller: a copy of a process
     that already runs other threads can deadlock. As with any start method but fork, a script that calls this must
     keep its top-level code under `if __name__ == "__main__":`.
     """
     num_processes = os.cpu_count() or 1
+    file_size = os.path.getsize(input_path)
     if special_tokens:
-        # More chunks than workers: each chunk stays small, and every worker stays busy until the end.
+        # More chunks than workers, so every worker stays busy until the end, and more still for a big file, so
+        # each chunk stays small: with 16 CPUs, TinyStories (2.2 GB) asks for 66 chunks, OpenWebText (11.9 GB) 355.
+        num_chunks = max(4 * num_processes, file_size // CHUNK_BYTES)
         with open(input_path, "rb") as f:
-            boundaries = find_chunk_boundaries(f, 4 * num_processes, special_tokens[0].encode("utf-8"))
+            boundaries = find_chunk_boundaries(f, num_chunks, special_tokens[0].encode("utf-8"))
     else:
-        boundaries = [0, os.path.getsize(input_path)]
+        boundaries = [0, file_size]
     jobs = [(input_path, start, end, special_tokens) for start, end in pairwise(boundaries)]
+    total: Counter[Word] = Counter()
     if len(jobs) <= 1:
         # Nothing to split (e.g. no special token in the file): starting worker processes would cost more (about
         # 0.2 s) than counting the one chunk right here.
-        results = [_count_chunk(job) for job in jobs]
+        for job in jobs:
+            total.update(_count_chunk(job))
     else:
         with multiprocessing.get_context("forkserver").Pool(min(num_processes, len(jobs))) as pool:
-            results = pool.map(_count_chunk, jobs)
-    total: Counter[Word] = Counter()
-    for word_counts in results:
-        total.update(word_counts)
+            for word_counts in pool.imap_unordered(_count_chunk, jobs):  # any order: the sum is the same
+                total.update(word_counts)
     return dict(total)
 
 
